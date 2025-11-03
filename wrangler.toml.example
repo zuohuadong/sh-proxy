@@ -1,0 +1,22 @@
+name = "sh-proxy"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+# Cloudflare Worker configuration
+# Copy this file to wrangler.toml and configure your account settings
+
+# Uncomment and add your account ID
+# account_id = "your-account-id-here"
+
+# Uncomment and add your zone ID if using custom domains
+# zone_id = "your-zone-id-here"
+
+[env.production]
+name = "sh-proxy"
+# Uncomment and configure routes for your custom domain
+routes = [
+  # Example: "proxy.yourdomain.com/*"
+]
+
+[env.dev]
+name = "sh-proxy-dev"
