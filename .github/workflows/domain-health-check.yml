@@ -1,0 +1,175 @@
+name: 域名健康检查
+
+on:
+  schedule:
+    # 每周一凌晨 2 点运行（UTC 时间）
+    - cron: '0 2 * * 1'
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  check-domains:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 检测代理域名状态
+        id: check
+        run: |
+          echo "开始检测代理域名..."
+
+          # 读取配置文件中的所有镜像域名
+          DOMAINS=$(node -e "
+            const fs = require('fs');
+            const code = fs.readFileSync('src/worker.js', 'utf8');
+            const mirrorMatch = code.match(/MIRRORS:\s*{([^}]+)}/s);
+            if (mirrorMatch) {
+              const mirrors = mirrorMatch[1];
+              const primaryDomains = [...mirrors.matchAll(/primary:\s*'([^']+)'/g)].map(m => m[1]);
+              const fallbackDomains = [...mirrors.matchAll(/fallback:\s*\[([^\]]*)\]/g)]
+                .flatMap(m => m[1].match(/'([^']+)'/g) || [])
+                .map(s => s.replace(/'/g, ''));
+              const allDomains = [...new Set([...primaryDomains, ...fallbackDomains])];
+              console.log(allDomains.join('\n'));
+            }
+          ")
+
+          echo "发现以下域名需要检测："
+          echo "$DOMAINS"
+
+          # 检测结果文件
+          BLOCKED_DOMAINS=""
+          AVAILABLE_DOMAINS=""
+
+          # 使用指定的 API 检测每个域名
+          while IFS= read -r domain; do
+            if [ -n "$domain" ]; then
+              echo "检测域名: $domain"
+
+              # 调用防火墙检测 API
+              # 注意：这个 API 可能需要特定的请求格式，这里使用 GET 请求
+              response=$(curl -s -w "\n%{http_code}" --max-time 30 \
+                "https://mc.fybk.cc/ys/ys2/doc-ck_qiang.html?domain=${domain}" || echo "000")
+
+              http_code=$(echo "$response" | tail -n1)
+              body=$(echo "$response" | sed '$d')
+
+              # 根据响应判断域名状态
+              # 这里的逻辑可能需要根据实际 API 返回格式调整
+              if echo "$body" | grep -qi "被墙\|blocked\|gfw"; then
+                echo "  ❌ 域名 $domain 可能被墙"
+                BLOCKED_DOMAINS="${BLOCKED_DOMAINS}${domain}\n"
+              elif echo "$body" | grep -qi "正常\|available\|accessible"; then
+                echo "  ✅ 域名 $domain 可访问"
+                AVAILABLE_DOMAINS="${AVAILABLE_DOMAINS}${domain}\n"
+              else
+                # 如果 API 检测不确定，尝试直接访问
+                if timeout 10 curl -s -I "https://${domain}" > /dev/null 2>&1; then
+                  echo "  ✅ 域名 $domain 可访问（直接检测）"
+                  AVAILABLE_DOMAINS="${AVAILABLE_DOMAINS}${domain}\n"
+                else
+                  echo "  ⚠️  域名 $domain 无法访问"
+                  BLOCKED_DOMAINS="${BLOCKED_DOMAINS}${domain}\n"
+                fi
+              fi
+
+              # 避免请求过快
+              sleep 2
+            fi
+          done <<< "$DOMAINS"
+
+          # 保存结果
+          echo "blocked_domains<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$BLOCKED_DOMAINS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "available_domains<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$AVAILABLE_DOMAINS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          if [ -n "$BLOCKED_DOMAINS" ]; then
+            echo "has_blocked=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_blocked=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 创建 Issue 报告被墙域名
+        if: steps.check.outputs.has_blocked == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const blockedDomains = `${{ steps.check.outputs.blocked_domains }}`.trim();
+            const availableDomains = `${{ steps.check.outputs.available_domains }}`.trim();
+
+            const issueTitle = `⚠️ 检测到镜像域名被墙 - ${new Date().toISOString().split('T')[0]}`;
+            const issueBody = `## 域名健康检查报告
+
+            ### 🚫 被墙或无法访问的域名
+
+            ${blockedDomains.split('\n').filter(d => d.trim()).map(d => `- \`${d}\``).join('\n')}
+
+            ### ✅ 可访问的域名
+
+            ${availableDomains.split('\n').filter(d => d.trim()).map(d => `- \`${d}\``).join('\n') || '无'}
+
+            ---
+
+            **检测时间**: ${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}
+
+            **建议操作**:
+            1. 检查被墙域名，考虑从配置中移除或降低优先级
+            2. 添加新的可用镜像域名作为备用
+            3. 更新 \`src/worker.js\` 中的 \`MIRRORS\` 配置
+
+            **检测方法**: 使用 https://mc.fybk.cc/ys/ys2/doc-ck_qiang.html 进行检测
+            `;
+
+            // 检查是否已存在相关 issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'domain-health'
+            });
+
+            const existingIssue = issues.data.find(issue =>
+              issue.title.includes('检测到镜像域名被墙')
+            );
+
+            if (existingIssue) {
+              // 更新现有 issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `## 最新检测结果\n\n${issueBody}`
+              });
+              console.log(`已更新 issue #${existingIssue.number}`);
+            } else {
+              // 创建新 issue
+              const newIssue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body: issueBody,
+                labels: ['domain-health', 'automated']
+              });
+              console.log(`已创建新 issue #${newIssue.data.number}`);
+            }
+
+      - name: 检测完成
+        run: |
+          echo "✅ 域名健康检查完成"
+          if [ "${{ steps.check.outputs.has_blocked }}" == "true" ]; then
+            echo "⚠️  发现被墙域名，请查看创建的 Issue"
+            exit 0  # 不让 workflow 失败，只是创建 issue 提醒
+          else
+            echo "✅ 所有域名运行正常"
+          fi

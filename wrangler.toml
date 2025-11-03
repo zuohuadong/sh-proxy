@@ -1,9 +1,10 @@
 name = "sh-proxy"
-main = "src/index.js"
+main = "src/worker.js"
 compatibility_date = "2024-01-01"
 
 # Cloudflare Worker configuration
-# Account ID and zone ID should be configured during deployment
+# Uncomment and add your account_id after running 'wrangler login'
+# account_id = "your-account-id-here"
 
 [env.production]
 name = "sh-proxy"
