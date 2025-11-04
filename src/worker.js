@@ -121,7 +121,7 @@ const CONFIG = {
       fallback: []
     },
 
-    // Bun
+    // Bun - 直接域名替换
     'bun.sh': {
       primary: 'raw.gitmirror.com/oven-sh/bun/main/src',
       fallback: ['raw.githubusercontent.com/oven-sh/bun/main/src'],
