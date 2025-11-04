@@ -2,10 +2,8 @@
 
 🚀 基于 Cloudflare Workers 的脚本镜像加速代理服务
 
-[![Deploy to Cloudflare Workers](https://img.shields.io/badge/Deploy%20to-Cloudflare%20Workers-F38020?logo=cloudflare)](https://sh-proxy.nestjs.workers.dev)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zuohuadong/sh-proxy)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-
-**在线演示：** https://sh-proxy.nestjs.workers.dev
 
 ## 简介
 
