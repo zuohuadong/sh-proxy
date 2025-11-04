@@ -2,18 +2,25 @@
 
 🚀 基于 Cloudflare Workers 的脚本镜像加速代理服务
 
+[![Deploy to Cloudflare Workers](https://img.shields.io/badge/Deploy%20to-Cloudflare%20Workers-F38020?logo=cloudflare)](https://sh-proxy.nestjs.workers.dev)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
+**在线演示：** https://sh-proxy.nestjs.workers.dev
+
 ## 简介
 
 SH Proxy 是一个运行在 Cloudflare Workers 上的轻量级代理服务，专门用于加速各种安装脚本的访问。本服务**只处理脚本文件**，自动替换脚本中的镜像链接，确保安装过程流畅无阻。利用 Cloudflare 的全球边缘网络，为用户提供快速、稳定的访问体验。
 
 ## 功能特性
 
-- ✅ **纯域名格式支持**：支持 `bun.sh/install` 等简洁格式，无需输入完整 URL
+- ✅ **纯域名格式支持**：支持 \`bun.sh/install\` 等简洁格式，无需输入完整 URL
 - ✅ **脚本专用处理**：只处理 Shell、Python、JavaScript 等脚本文件
+- ✅ **双模式代理**：支持完整 URL 代理和域名替换两种模式
+  - \`full-url-proxy\`：适用于 gh-proxy.net 等需要完整 URL 的代理服务
+  - \`domain-replace\`：适用于直接域名替换的镜像服务
 - ✅ **智能镜像替换**：自动将脚本中的链接替换为可用镜像源
 - ✅ **自动故障切换**：主镜像不可用时自动切换到备用镜像
 - ✅ **域名健康检查**：实时检测镜像域名可用性
-- ✅ **CI 自动监控**：每周自动检测镜像域名是否被墙
 - ✅ **边缘加速**：利用 Cloudflare 全球 CDN 网络
 - ✅ **CORS 支持**：完整的跨域资源共享支持
 - ✅ **智能缓存**：自动缓存内容，提升访问速度
@@ -24,7 +31,7 @@ SH Proxy 是一个运行在 Cloudflare Workers 上的轻量级代理服务，专
 
 ### 前置要求
 
-- Node.js 16.x 或更高版本
+- **Node.js 20.x 或更高版本** （Wrangler 要求）
 - Cloudflare 账号
 - Wrangler CLI 工具
 
@@ -32,22 +39,22 @@ SH Proxy 是一个运行在 Cloudflare Workers 上的轻量级代理服务，专
 
 1. **克隆项目**
 
-```bash
-git clone <your-repo-url>
+\`\`\`bash
+git clone https://github.com/zuohuadong/sh-proxy.git
 cd sh-proxy
-```
+\`\`\`
 
 2. **安装依赖**
 
-```bash
+\`\`\`bash
 npm install
-```
+\`\`\`
 
 3. **配置 Wrangler**
 
-编辑 `wrangler.toml` 文件，配置您的 Cloudflare 账号信息：
+编辑 \`wrangler.toml\` 文件，配置您的 Cloudflare 账号信息：
 
-```toml
+\`\`\`toml
 name = "sh-proxy"
 main = "src/worker.js"
 compatibility_date = "2024-01-01"
@@ -57,27 +64,27 @@ compatibility_date = "2024-01-01"
 routes = [
   "proxy.yourdomain.com/*"
 ]
-```
+\`\`\`
 
 ### 本地开发
 
 启动本地开发服务器：
 
-```bash
+\`\`\`bash
 npm run dev
-```
+\`\`\`
 
-访问 `http://localhost:8787` 查看服务是否正常运行。
+访问 \`http://localhost:8787\` 查看服务是否正常运行。
 
 ### 部署
 
 部署到 Cloudflare Workers：
 
-```bash
+\`\`\`bash
 npm run deploy
-```
+\`\`\`
 
-部署成功后，您将获得一个 `*.workers.dev` 域名。
+部署成功后，您将获得一个 \`*.workers.dev\` 域名。
 
 ## 使用方法
 
@@ -89,17 +96,17 @@ npm run deploy
 
 直接使用域名和路径，无需添加协议前缀：
 
-```bash
-https://your-worker.workers.dev/域名/路径
-```
+\`\`\`bash
+https://sh-proxy.nestjs.workers.dev/域名/路径
+\`\`\`
 
 #### 2. 完整 URL 格式
 
 使用完整的 URL（包含 https://）：
 
-```bash
-https://your-worker.workers.dev/https://目标网址
-```
+\`\`\`bash
+https://sh-proxy.nestjs.workers.dev/https://目标网址
+\`\`\`
 
 ### 实际示例
 
@@ -107,52 +114,62 @@ https://your-worker.workers.dev/https://目标网址
 
 **1. 代理 Bun 安装脚本**
 
-```bash
+\`\`\`bash
 # 纯域名格式（推荐）
-curl -fsSL https://your-worker.workers.dev/bun.sh/install | bash
+curl -fsSL https://sh-proxy.nestjs.workers.dev/bun.sh/install | bash
 
 # 完整 URL 格式
-curl -fsSL https://your-worker.workers.dev/https://bun.sh/install | bash
-```
+curl -fsSL https://sh-proxy.nestjs.workers.dev/https://bun.sh/install | bash
+\`\`\`
 
 **2. 代理 GitHub Raw 文件**
 
-```bash
+\`\`\`bash
 # 纯域名格式
-curl -fsSL https://your-worker.workers.dev/raw.githubusercontent.com/user/repo/main/install.sh | bash
+curl -fsSL https://sh-proxy.nestjs.workers.dev/raw.githubusercontent.com/user/repo/main/install.sh | bash
 
 # 完整 URL 格式
-curl -fsSL https://your-worker.workers.dev/https://raw.githubusercontent.com/user/repo/main/install.sh | bash
-```
+curl -fsSL https://sh-proxy.nestjs.workers.dev/https://raw.githubusercontent.com/user/repo/main/install.sh | bash
+\`\`\`
 
-**3. 下载并执行脚本**
+**3. 代理 GitHub 下载文件（自动使用 gh-proxy.net）**
 
-```bash
+\`\`\`bash
+# 下载 GitHub Releases 文件
+# 脚本中的 github.com 链接会自动转换为 gh-proxy.net 完整 URL 代理
+curl -fsSL https://sh-proxy.nestjs.workers.dev/https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip -o bun.zip
+
+# 实际代理后的 URL 格式：https://gh-proxy.net/https://github.com/oven-sh/bun/releases/...
+\`\`\`
+
+**4. 下载并执行脚本**
+
+\`\`\`bash
 # 使用 wget
-wget -qO- https://your-worker.workers.dev/example.com/setup.sh | sh
+wget -qO- https://sh-proxy.nestjs.workers.dev/example.com/setup.sh | sh
 
 # 使用 curl
-curl -sSL https://your-worker.workers.dev/get.docker.com | sh
-```
+curl -sSL https://sh-proxy.nestjs.workers.dev/get.docker.com | sh
+\`\`\`
 
 #### Python 脚本代理
 
-```bash
+\`\`\`bash
 # 代理 Python 安装脚本
-curl -fsSL https://your-worker.workers.dev/pyenv.run | bash
+curl -fsSL https://sh-proxy.nestjs.workers.dev/pyenv.run | bash
 
 # 或者使用 wget
-wget -qO- https://your-worker.workers.dev/get.poetry.io | python3 -
-```
+wget -qO- https://sh-proxy.nestjs.workers.dev/get.poetry.io | python3 -
+\`\`\`
 
 ### 支持的脚本类型
 
 本服务专门处理以下类型的脚本文件：
 
-- ✅ Shell 脚本 (`.sh`, `text/x-shellscript`)
-- ✅ Python 脚本 (`.py`, `text/x-python`)
-- ✅ JavaScript 脚本 (`.js`, `application/javascript`)
-- ✅ 纯文本脚本 (`text/plain`)
+- ✅ Shell 脚本 (\`.sh\`, \`text/x-shellscript\`)
+- ✅ Python 脚本 (\`.py\`, \`text/x-python\`)
+- ✅ JavaScript 脚本 (\`.js\`, \`application/javascript\`)
+- ✅ 纯文本脚本 (\`text/plain\`)
 
 **注意**：本服务不处理以下内容：
 - ❌ HTML 页面
@@ -164,19 +181,29 @@ wget -qO- https://your-worker.workers.dev/get.poetry.io | python3 -
 
 ### 镜像域名配置 (src/worker.js)
 
-配置文件中的 `MIRRORS` 对象定义了所有镜像域名的映射关系：
+配置文件中的 \`MIRRORS\` 对象定义了所有镜像域名的映射关系，支持两种代理类型：
 
-```javascript
+\`\`\`javascript
 const CONFIG = {
   MIRRORS: {
-    // 原始域名
+    // 完整 URL 代理类型（适用于 gh-proxy.net 等服务）
     'github.com': {
-      primary: 'gh-proxy.net',           // 主镜像
-      fallback: ['ghproxy.com', 'mirror.ghproxy.com']  // 备用镜像列表
+      primary: 'gh-proxy.net',
+      fallback: ['ghproxy.com', 'mirror.ghproxy.com'],
+      type: 'full-url-proxy'  // 完整 URL 代理
     },
+
+    // 域名替换类型（适用于直接镜像服务）
+    'raw.githubusercontent.com': {
+      primary: 'raw.gitmirror.com',
+      fallback: ['raw.githubusercontent.com'],
+      type: 'domain-replace'  // 简单域名替换
+    },
+
     'www.npmjs.com': {
       primary: 'npmmirror.com',
       fallback: ['npm.taobao.org']
+      // 不指定 type 时，默认为 domain-replace
     },
     // ... 更多镜像配置
   },
@@ -202,60 +229,49 @@ const CONFIG = {
   // 域名健康检查结果缓存时间（秒）
   HEALTH_CHECK_CACHE: 3600,
 };
-```
+\`\`\`
+
+### 代理类型说明
+
+#### 1. full-url-proxy（完整 URL 代理）
+
+用于需要完整原始 URL 的代理服务，如 gh-proxy.net。
+
+**原始链接：**
+\`\`\`
+https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip
+\`\`\`
+
+**转换后：**
+\`\`\`
+https://gh-proxy.net/https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip
+\`\`\`
+
+#### 2. domain-replace（域名替换，默认）
+
+用于直接替换域名的镜像服务，如 raw.gitmirror.com。
+
+**原始链接：**
+\`\`\`
+https://raw.githubusercontent.com/user/repo/main/file.sh
+\`\`\`
+
+**转换后：**
+\`\`\`
+https://raw.gitmirror.com/user/repo/main/file.sh
+\`\`\`
 
 ### 配置项说明
 
 - **primary**: 优先使用的主镜像域名
 - **fallback**: 备用镜像域名列表，当主镜像不可用时依次尝试
+- **type**: 代理类型，可选值：
+  - \`full-url-proxy\`：完整 URL 代理模式
+  - \`domain-replace\`：域名替换模式（默认）
 - **HEALTH_CHECK_TIMEOUT**: 健康检查的超时时间，默认 5 秒
 - **HEALTH_CHECK_CACHE**: 健康检查结果缓存时间，默认 1 小时
 
 您可以根据实际情况添加或修改镜像配置。
-
-## 高级用法
-
-### 绑定自定义域名
-
-1. 在 Cloudflare 中添加您的域名
-2. 编辑 `wrangler.toml`：
-
-```toml
-[env.production]
-name = "sh-proxy"
-routes = [
-  "proxy.yourdomain.com/*"
-]
-```
-
-3. 部署：
-
-```bash
-npm run deploy --env production
-```
-
-### 查看日志
-
-实时查看 Worker 日志：
-
-```bash
-npm run tail
-```
-
-## 项目结构
-
-```
-sh-proxy/
-├── src/
-│   └── worker.js            # Worker 主程序
-├── .github/
-│   └── workflows/
-│       └── domain-health-check.yml  # 域名健康检查 CI
-├── .gitignore              # Git 忽略文件
-├── package.json            # 项目依赖配置
-├── wrangler.toml           # Wrangler 配置
-└── README.md              # 项目文档
-```
 
 ## 工作原理
 
@@ -264,7 +280,9 @@ sh-proxy/
 3. **安全检查**：验证 URL 合法性，检测代理循环
 4. **获取内容**：从目标服务器获取脚本文件
 5. **内容过滤**：只处理脚本类型的文件（Shell、Python、JavaScript 等）
-6. **智能替换**：检测镜像域名健康状态，选择最佳镜像进行链接替换
+6. **智能替换**：检测镜像域名健康状态，根据代理类型选择最佳镜像进行链接替换
+   - **full-url-proxy**: 生成完整 URL 代理格式（如 \`https://gh-proxy.net/https://github.com/...\`）
+   - **domain-replace**: 直接替换域名（如 \`https://raw.gitmirror.com/...\`）
 7. **返回响应**：返回处理后的脚本内容给用户
 
 ### 脚本专用处理
@@ -284,56 +302,31 @@ sh-proxy/
 2. **优先级选择**：优先使用配置的主镜像（primary）
 3. **自动降级**：主镜像不可用时，自动切换到备用镜像（fallback）
 4. **结果缓存**：健康检查结果会缓存 1 小时，避免频繁检测
-
-### CI 自动监控
-
-项目配置了 GitHub Actions 工作流，实现自动化域名监控：
-
-- **检测频率**：每周一自动运行（也可手动触发）
-- **检测工具**：使用 https://mc.fybk.cc/ys/ys2/doc-ck_qiang.html 检测域名是否被墙
-- **自动通知**：发现被墙域名时自动创建 GitHub Issue
-- **详细报告**：列出所有被墙和可用的域名，便于及时调整配置
-
-要手动触发检测，可以在 GitHub Actions 页面点击 "Run workflow"。
-
-## 性能优化
-
-- **边缘缓存**：利用 Cloudflare CDN 缓存静态内容
-- **智能处理**：只对文本类内容进行链接替换
-- **超时控制**：避免长时间等待
-- **请求头优化**：模拟真实浏览器请求
-
-## 注意事项
-
-1. **使用场景**：本服务专门用于加速脚本安装过程，不适合作为通用代理
-2. **文件类型限制**：只处理脚本文件，不处理 HTML 页面、图片等其他类型
-3. **合规使用**：请遵守目标网站的使用条款和相关法律法规
-4. **流量限制**：Cloudflare Workers 免费版有每日请求限制
-5. **安全提醒**：从互联网下载并执行脚本前，请先检查脚本内容
-6. **缓存策略**：根据实际需求调整缓存时间
+5. **双模式支持**：根据配置的 type 自动选择代理模式
 
 ## 故障排除
 
 ### 部署失败
 
+- **检查 Node.js 版本**：确保使用 Node.js 20.x 或更高版本
 - 检查 Cloudflare 账号是否正确配置
-- 确认 wrangler 已正确登录：`wrangler whoami`
+- 确认 wrangler 已正确登录：\`wrangler whoami\`
 
 ### 代理无法访问
 
 - 检查目标 URL 格式是否正确（支持纯域名和完整 URL）
-- 查看 Worker 日志：`npm run tail`
+- 查看 Worker 日志：\`npm run tail\`
 - 确认目标网站没有封禁 Cloudflare IP
 
 ### 脚本未被处理
 
 - 确认文件的 Content-Type 是否为脚本类型
-- 查看响应头中的 `Content-Type`，确保在支持列表中
+- 查看响应头中的 \`Content-Type\`，确保在支持列表中
 - 非脚本文件会被直接透传，不会进行链接替换
 
 ### 性能问题
 
-- 调整 `CACHE_MAX_AGE` 增加缓存时间
+- 调整 \`CACHE_MAX_AGE\` 增加缓存时间
 - 使用自定义域名而非 workers.dev
 - 考虑升级到 Cloudflare Workers 付费版
 
@@ -341,60 +334,33 @@ sh-proxy/
 
 ### 添加新的镜像配置
 
-在 `src/worker.js` 的 `CONFIG.MIRRORS` 中添加新的镜像映射：
+在 \`src/worker.js\` 的 \`CONFIG.MIRRORS\` 中添加新的镜像映射：
 
-```javascript
+\`\`\`javascript
 MIRRORS: {
   // 现有配置...
 
-  // 添加新的镜像配置
+  // 添加新的完整 URL 代理
   'example.com': {
-    primary: 'mirror1.example.com',      // 主镜像
-    fallback: ['mirror2.example.com', 'mirror3.example.com']  // 备用镜像
+    primary: 'proxy.example.net',
+    fallback: ['proxy2.example.net'],
+    type: 'full-url-proxy'  // 完整 URL 代理模式
+  },
+
+  // 添加新的域名替换镜像
+  'another.com': {
+    primary: 'mirror.another.com',
+    fallback: ['mirror2.another.com'],
+    type: 'domain-replace'  // 或不指定，默认为 domain-replace
   }
 }
-```
+\`\`\`
 
 镜像配置会自动生效，系统会：
-1. 优先使用 `primary` 镜像
-2. 如果 `primary` 不可用，依次尝试 `fallback` 中的镜像
-3. 健康检查结果会缓存 1 小时
-
-### 监控域名健康状态
-
-1. **自动监控**：GitHub Actions 会每周一自动检测所有配置的镜像域名
-2. **手动触发**：
-   - 访问仓库的 Actions 页面
-   - 选择 "域名健康检查" workflow
-   - 点击 "Run workflow" 按钮
-3. **查看结果**：如果发现被墙域名，会自动创建 Issue 通知
-
-### 修改检测频率
-
-编辑 `.github/workflows/domain-health-check.yml` 中的 cron 表达式：
-
-```yaml
-schedule:
-  # 每周一凌晨 2 点运行（UTC 时间）
-  - cron: '0 2 * * 1'
-```
-
-常用的 cron 表达式：
-- 每天运行：`0 2 * * *`
-- 每周运行：`0 2 * * 1`（周一）
-- 每月运行：`0 2 1 * *`（每月 1 号）
-
-### 修改可处理的内容类型
-
-编辑 `CONFIG.PROCESSABLE_CONTENT_TYPES` 数组：
-
-```javascript
-PROCESSABLE_CONTENT_TYPES: [
-  'text/html',
-  'text/plain',
-  'application/xml',  // 添加新类型
-]
-```
+1. 优先使用 \`primary\` 镜像
+2. 如果 \`primary\` 不可用，依次尝试 \`fallback\` 中的镜像
+3. 根据 \`type\` 选择合适的代理模式
+4. 健康检查结果会缓存 1 小时
 
 ## 贡献
 
@@ -402,13 +368,14 @@ PROCESSABLE_CONTENT_TYPES: [
 
 ## 许可证
 
-MIT License
+Apache License 2.0
 
 ## 相关资源
 
 - [Cloudflare Workers 文档](https://developers.cloudflare.com/workers/)
 - [Wrangler CLI 文档](https://developers.cloudflare.com/workers/wrangler/)
 - [Cloudflare Workers 定价](https://developers.cloudflare.com/workers/platform/pricing/)
+- [GitHub 仓库](https://github.com/zuohuadong/sh-proxy)
 
 ## 致谢
 
