@@ -3,7 +3,8 @@
 🚀 基于 Cloudflare Workers 的脚本镜像加速代理服务
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zuohuadong/sh-proxy)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=flat)](LICENSE) [![GitHub Stars](https://img.shields.io/github/stars/zuohuadong/sh-proxy?style=flat&logo=github&color=yellow)](https://github.com/zuohuadong/sh-proxy/stargazers) [![GitHub Forks](https://img.shields.io/github/forks/zuohuadong/sh-proxy?style=flat&logo=github&color=blue)](https://github.com/zuohuadong/sh-proxy/network/members) [![GitHub Issues](https://img.shields.io/github/issues/zuohuadong/sh-proxy?style=flat&logo=github&color=red)](https://github.com/zuohuadong/sh-proxy/issues) [![Last Commit](https://img.shields.io/github/last-commit/zuohuadong/sh-proxy?style=flat&logo=github&color=green)](https://github.com/zuohuadong/sh-proxy/commits/master) [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-orange?style=flat&logo=cloudflare)](https://workers.cloudflare.com/)
 
 ## 简介
 
@@ -146,17 +147,17 @@ curl https://proxy.example.com/
 
 直接使用域名和路径，无需添加协议前缀：
 
-\`\`\`bash
+```bash
 https://你的域名/域名/路径
-\`\`\`
+```
 
 #### 2. 完整 URL 格式
 
 使用完整的 URL（包含 https://）：
 
-\`\`\`bash
+```bash
 https://你的域名/https://目标网址
-\`\`\`
+```
 
 ### 实际示例
 
@@ -164,72 +165,72 @@ https://你的域名/https://目标网址
 
 **1. 代理 NVM 安装脚本**
 
-\`\`\`bash
+```bash
 # 加速安装 NVM (Node Version Manager)
 curl -fsSL https://你的域名/raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
 
 # 或使用完整 URL 格式
 curl -fsSL https://你的域名/https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
-\`\`\`
+```
 
 **2. 代理 Bun 安装脚本**
 
-\`\`\`bash
+```bash
 # 纯域名格式（推荐）
 curl -fsSL https://你的域名/bun.sh/install | bash
 
 # 完整 URL 格式
 curl -fsSL https://你的域名/https://bun.sh/install | bash
-\`\`\`
+```
 
 **3. 代理 GitHub Raw 文件**
 
-\`\`\`bash
+```bash
 # 纯域名格式
 curl -fsSL https://你的域名/raw.githubusercontent.com/user/repo/main/install.sh | bash
 
 # 完整 URL 格式
 curl -fsSL https://你的域名/https://raw.githubusercontent.com/user/repo/main/install.sh | bash
-\`\`\`
+```
 
 **4. 代理 GitHub 下载文件（自动使用 gh-proxy.net）**
 
-\`\`\`bash
+```bash
 # 下载 GitHub Releases 文件
 # 脚本中的 github.com 链接会自动转换为 gh-proxy.net 完整 URL 代理
 curl -fsSL https://你的域名/https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip -o bun.zip
 
 # 实际代理后的 URL 格式：https://gh-proxy.net/https://github.com/oven-sh/bun/releases/...
-\`\`\`
+```
 
 **5. 下载并执行脚本**
 
-\`\`\`bash
+```bash
 # 使用 wget
 wget -qO- https://你的域名/example.com/setup.sh | sh
 
 # 使用 curl
 curl -sSL https://你的域名/get.docker.com | sh
-\`\`\`
+```
 
 #### Python 脚本代理
 
-\`\`\`bash
+```bash
 # 代理 Python 安装脚本
 curl -fsSL https://你的域名/pyenv.run | bash
 
 # 或者使用 wget
 wget -qO- https://你的域名/get.poetry.io | python3 -
-\`\`\`
+```
 
 ### 支持的脚本类型
 
 本服务专门处理以下类型的脚本文件：
 
-- ✅ Shell 脚本 (\`.sh\`, \`text/x-shellscript\`)
-- ✅ Python 脚本 (\`.py\`, \`text/x-python\`)
-- ✅ JavaScript 脚本 (\`.js\`, \`application/javascript\`)
-- ✅ 纯文本脚本 (\`text/plain\`)
+- ✅ Shell 脚本 (`.sh`, `text/x-shellscript`)
+- ✅ Python 脚本 (`.py`, `text/x-python`)
+- ✅ JavaScript 脚本 (`.js`, `application/javascript`)
+- ✅ 纯文本脚本 (`text/plain`)
 
 **注意**：本服务不处理以下内容：
 - ❌ HTML 页面
