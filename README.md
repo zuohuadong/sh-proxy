@@ -4,7 +4,7 @@
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/zuohuadong/sh-proxy)
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=flat)](LICENSE) [![GitHub Stars](https://img.shields.io/github/stars/zuohuadong/sh-proxy?style=flat&logo=github&color=yellow)](https://github.com/zuohuadong/sh-proxy/stargazers) [![GitHub Forks](https://img.shields.io/github/forks/zuohuadong/sh-proxy?style=flat&logo=github&color=blue)](https://github.com/zuohuadong/sh-proxy/network/members) [![GitHub Issues](https://img.shields.io/github/issues/zuohuadong/sh-proxy?style=flat&logo=github&color=red)](https://github.com/zuohuadong/sh-proxy/issues) [![Last Commit](https://img.shields.io/github/last-commit/zuohuadong/sh-proxy?style=flat&logo=github&color=green)](https://github.com/zuohuadong/sh-proxy/commits/master) [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-orange?style=flat&logo=cloudflare)](https://workers.cloudflare.com/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=flat-square)](LICENSE) [![GitHub Stars](https://img.shields.io/github/stars/zuohuadong/sh-proxy?style=flat-square&logo=github&color=yellow)](https://github.com/zuohuadong/sh-proxy/stargazers) [![GitHub Forks](https://img.shields.io/github/forks/zuohuadong/sh-proxy?style=flat-square&logo=github&color=blue)](https://github.com/zuohuadong/sh-proxy/network/members) [![GitHub Issues](https://img.shields.io/github/issues/zuohuadong/sh-proxy?style=flat-square&logo=github&color=red)](https://github.com/zuohuadong/sh-proxy/issues) [![Last Commit](https://img.shields.io/github/last-commit/zuohuadong/sh-proxy?style=flat-square&logo=github&color=green)](https://github.com/zuohuadong/sh-proxy/commits/master) [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-orange?style=flat-square&logo=cloudflare)](https://workers.cloudflare.com/)
 
 ## 简介
 
@@ -21,11 +21,11 @@ SH Proxy 是一个运行在 Cloudflare Workers 上的轻量级代理服务，专
 
 ## 功能特性
 
-- ✅ **纯域名格式支持**：支持 \`bun.sh/install\` 等简洁格式，无需输入完整 URL
+- ✅ **纯域名格式支持**：支持 `bun.sh/install` 等简洁格式，无需输入完整 URL
 - ✅ **脚本专用处理**：只处理 Shell、Python、JavaScript 等脚本文件
 - ✅ **双模式代理**：支持完整 URL 代理和域名替换两种模式
-  - \`full-url-proxy\`：适用于 gh-proxy.net 等需要完整 URL 的代理服务
-  - \`domain-replace\`：适用于直接域名替换的镜像服务
+  - `full-url-proxy`：适用于 gh-proxy.net 等需要完整 URL 的代理服务
+  - `domain-replace`：适用于直接域名替换的镜像服务
 - ✅ **智能镜像替换**：自动将脚本中的链接替换为可用镜像源
 - ✅ **自动故障切换**：主镜像不可用时自动切换到备用镜像
 - ✅ **域名健康检查**：实时检测镜像域名可用性
@@ -47,22 +47,22 @@ SH Proxy 是一个运行在 Cloudflare Workers 上的轻量级代理服务，专
 
 1. **克隆项目**
 
-\`\`\`bash
+```bash
 git clone https://github.com/zuohuadong/sh-proxy.git
 cd sh-proxy
-\`\`\`
+```
 
 2. **安装依赖**
 
-\`\`\`bash
+```bash
 npm install
-\`\`\`
+```
 
 3. **配置 Wrangler**
 
-编辑 \`wrangler.toml\` 文件，配置您的 Cloudflare 账号信息：
+编辑 `wrangler.toml` 文件，配置您的 Cloudflare 账号信息：
 
-\`\`\`toml
+```toml
 name = "sh-proxy"
 main = "src/worker.js"
 compatibility_date = "2024-01-01"
@@ -72,31 +72,31 @@ compatibility_date = "2024-01-01"
 routes = [
   "proxy.yourdomain.com/*"
 ]
-\`\`\`
+```
 
 ### 本地开发
 
 启动本地开发服务器：
 
-\`\`\`bash
+```bash
 npm run dev
-\`\`\`
+```
 
-访问 \`http://localhost:8787\` 查看服务是否正常运行。
+访问 `http://localhost:8787` 查看服务是否正常运行。
 
 ### 部署
 
 部署到 Cloudflare Workers：
 
-\`\`\`bash
+```bash
 npm run deploy
-\`\`\`
+```
 
-部署成功后，您将获得一个 \`*.workers.dev\` 域名。
+部署成功后，您将获得一个 `*.workers.dev` 域名。
 
 ### 绑定自定义域名
 
-> **⚠️ 重要：** \`*.workers.dev\` 域名在中国大陆已被屏蔽，**必须绑定自定义域名才能在国内使用**。
+> **⚠️ 重要：** `*.workers.dev` 域名在中国大陆已被屏蔽，**必须绑定自定义域名才能在国内使用**。
 
 #### 步骤 1：在 Cloudflare 添加域名
 
@@ -131,9 +131,9 @@ npm run deploy
 
 部署完成后，使用自定义域名测试：
 
-\`\`\`bash
+```bash
 curl https://proxy.example.com/
-\`\`\`
+```
 
 应该能看到服务的欢迎页面。
 
@@ -242,9 +242,9 @@ wget -qO- https://你的域名/get.poetry.io | python3 -
 
 ### 镜像域名配置 (src/worker.js)
 
-配置文件中的 \`MIRRORS\` 对象定义了所有镜像域名的映射关系，支持两种代理类型：
+配置文件中的 `MIRRORS` 对象定义了所有镜像域名的映射关系，支持两种代理类型：
 
-\`\`\`javascript
+```javascript
 const CONFIG = {
   MIRRORS: {
     // 完整 URL 代理类型（适用于 gh-proxy.net 等服务）
@@ -290,7 +290,7 @@ const CONFIG = {
   // 域名健康检查结果缓存时间（秒）
   HEALTH_CHECK_CACHE: 3600,
 };
-\`\`\`
+```
 
 ### 代理类型说明
 
@@ -299,36 +299,36 @@ const CONFIG = {
 用于需要完整原始 URL 的代理服务，如 gh-proxy.net。
 
 **原始链接：**
-\`\`\`
+```
 https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip
-\`\`\`
+```
 
 **转换后：**
-\`\`\`
+```
 https://gh-proxy.net/https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip
-\`\`\`
+```
 
 #### 2. domain-replace（域名替换，默认）
 
 用于直接替换域名的镜像服务，如 raw.gitmirror.com。
 
 **原始链接：**
-\`\`\`
+```
 https://raw.githubusercontent.com/user/repo/main/file.sh
-\`\`\`
+```
 
 **转换后：**
-\`\`\`
+```
 https://raw.gitmirror.com/user/repo/main/file.sh
-\`\`\`
+```
 
 ### 配置项说明
 
 - **primary**: 优先使用的主镜像域名
 - **fallback**: 备用镜像域名列表，当主镜像不可用时依次尝试
 - **type**: 代理类型，可选值：
-  - \`full-url-proxy\`：完整 URL 代理模式
-  - \`domain-replace\`：域名替换模式（默认）
+  - `full-url-proxy`：完整 URL 代理模式
+  - `domain-replace`：域名替换模式（默认）
 - **HEALTH_CHECK_TIMEOUT**: 健康检查的超时时间，默认 5 秒
 - **HEALTH_CHECK_CACHE**: 健康检查结果缓存时间，默认 1 小时
 
@@ -342,8 +342,8 @@ https://raw.gitmirror.com/user/repo/main/file.sh
 4. **获取内容**：从目标服务器获取脚本文件
 5. **内容过滤**：只处理脚本类型的文件（Shell、Python、JavaScript 等）
 6. **智能替换**：检测镜像域名健康状态，根据代理类型选择最佳镜像进行链接替换
-   - **full-url-proxy**: 生成完整 URL 代理格式（如 \`https://gh-proxy.net/https://github.com/...\`）
-   - **domain-replace**: 直接替换域名（如 \`https://raw.gitmirror.com/...\`）
+   - **full-url-proxy**: 生成完整 URL 代理格式（如 `https://gh-proxy.net/https://github.com/...`）
+   - **domain-replace**: 直接替换域名（如 `https://raw.gitmirror.com/...`）
 7. **返回响应**：返回处理后的脚本内容给用户
 
 ### 脚本专用处理
@@ -371,23 +371,23 @@ https://raw.gitmirror.com/user/repo/main/file.sh
 
 - **检查 Node.js 版本**：确保使用 Node.js 20.x 或更高版本
 - 检查 Cloudflare 账号是否正确配置
-- 确认 wrangler 已正确登录：\`wrangler whoami\`
+- 确认 wrangler 已正确登录：`wrangler whoami`
 
 ### 代理无法访问
 
 - 检查目标 URL 格式是否正确（支持纯域名和完整 URL）
-- 查看 Worker 日志：\`npm run tail\`
+- 查看 Worker 日志：`npm run tail`
 - 确认目标网站没有封禁 Cloudflare IP
 
 ### 脚本未被处理
 
 - 确认文件的 Content-Type 是否为脚本类型
-- 查看响应头中的 \`Content-Type\`，确保在支持列表中
+- 查看响应头中的 `Content-Type`，确保在支持列表中
 - 非脚本文件会被直接透传，不会进行链接替换
 
 ### 性能问题
 
-- 调整 \`CACHE_MAX_AGE\` 增加缓存时间
+- 调整 `CACHE_MAX_AGE` 增加缓存时间
 - 使用自定义域名而非 workers.dev
 - 考虑升级到 Cloudflare Workers 付费版
 
@@ -395,9 +395,9 @@ https://raw.gitmirror.com/user/repo/main/file.sh
 
 ### 添加新的镜像配置
 
-在 \`src/worker.js\` 的 \`CONFIG.MIRRORS\` 中添加新的镜像映射：
+在 `src/worker.js` 的 `CONFIG.MIRRORS` 中添加新的镜像映射：
 
-\`\`\`javascript
+```javascript
 MIRRORS: {
   // 现有配置...
 
@@ -415,12 +415,12 @@ MIRRORS: {
     type: 'domain-replace'  // 或不指定，默认为 domain-replace
   }
 }
-\`\`\`
+```
 
 镜像配置会自动生效，系统会：
-1. 优先使用 \`primary\` 镜像
-2. 如果 \`primary\` 不可用，依次尝试 \`fallback\` 中的镜像
-3. 根据 \`type\` 选择合适的代理模式
+1. 优先使用 `primary` 镜像
+2. 如果 `primary` 不可用，依次尝试 `fallback` 中的镜像
+3. 根据 `type` 选择合适的代理模式
 4. 健康检查结果会缓存 1 小时
 
 ## 贡献
