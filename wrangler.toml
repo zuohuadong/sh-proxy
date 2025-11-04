@@ -3,8 +3,8 @@ main = "src/worker.js"
 compatibility_date = "2024-01-01"
 
 # Cloudflare Worker configuration
-# Uncomment and add your account_id after running 'wrangler login'
-# account_id = "your-account-id-here"
+# Note: It's recommended to use environment variables or wrangler login instead of hardcoding credentials
+# You can set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ZONE_ID as environment variables
 
 [env.production]
 name = "sh-proxy"

@@ -12,11 +12,13 @@ const CONFIG = {
     // GitHub 生态
     'github.com': {
       primary: 'gh-proxy.net',
-      fallback: ['ghproxy.com', 'mirror.ghproxy.com']
+      fallback: ['ghproxy.com', 'mirror.ghproxy.com'],
+      type: 'full-url-proxy'  // 需要完整 URL 的代理类型
     },
     'raw.githubusercontent.com': {
       primary: 'raw.gitmirror.com',
-      fallback: ['raw.githubusercontent.com']
+      fallback: ['raw.githubusercontent.com'],
+      type: 'domain-replace'  // 简单域名替换
     },
     'gist.github.com': {
       primary: 'gist.fastgit.org',
@@ -387,17 +389,36 @@ async function replaceLinkss(content) {
     // 获取最佳镜像（优先使用 primary，如果不可用则使用 fallback）
     const mirror = await getBestMirror(domain);
 
-    // 替换 https:// 协议
-    const httpsRegex = new RegExp(`https://${escapeRegExp(domain)}`, 'g');
-    result = result.replace(httpsRegex, `https://${mirror}`);
+    // 获取镜像类型，默认为 domain-replace
+    const type = config.type || 'domain-replace';
 
-    // 替换 http:// 协议
-    const httpRegex = new RegExp(`http://${escapeRegExp(domain)}`, 'g');
-    result = result.replace(httpRegex, `https://${mirror}`);
+    if (type === 'full-url-proxy') {
+      // 需要完整 URL 的代理类型（如 gh-proxy.net）
+      // 格式: https://gh-proxy.net/https://github.com/xxx
 
-    // 替换纯域名（不带协议）
-    const plainRegex = new RegExp(`(?<!https?://)${escapeRegExp(domain)}`, 'g');
-    result = result.replace(plainRegex, mirror);
+      // 替换 https:// 协议
+      const httpsRegex = new RegExp(`https://${escapeRegExp(domain)}`, 'g');
+      result = result.replace(httpsRegex, `https://${mirror}/https://${domain}`);
+
+      // 替换 http:// 协议
+      const httpRegex = new RegExp(`http://${escapeRegExp(domain)}`, 'g');
+      result = result.replace(httpRegex, `https://${mirror}/http://${domain}`);
+    } else {
+      // 简单域名替换类型（默认）
+      // 格式: https://raw.gitmirror.com/xxx
+
+      // 替换 https:// 协议
+      const httpsRegex = new RegExp(`https://${escapeRegExp(domain)}`, 'g');
+      result = result.replace(httpsRegex, `https://${mirror}`);
+
+      // 替换 http:// 协议
+      const httpRegex = new RegExp(`http://${escapeRegExp(domain)}`, 'g');
+      result = result.replace(httpRegex, `https://${mirror}`);
+
+      // 替换纯域名（不带协议）
+      const plainRegex = new RegExp(`(?<!https?://)${escapeRegExp(domain)}`, 'g');
+      result = result.replace(plainRegex, mirror);
+    }
   }
 
   return result;
