@@ -97,7 +97,7 @@ npm run deploy
 直接使用域名和路径，无需添加协议前缀：
 
 \`\`\`bash
-https://sh-proxy.nestjs.workers.dev/域名/路径
+https://你的域名/域名/路径
 \`\`\`
 
 #### 2. 完整 URL 格式
@@ -105,7 +105,7 @@ https://sh-proxy.nestjs.workers.dev/域名/路径
 使用完整的 URL（包含 https://）：
 
 \`\`\`bash
-https://sh-proxy.nestjs.workers.dev/https://目标网址
+https://你的域名/https://目标网址
 \`\`\`
 
 ### 实际示例
@@ -116,30 +116,30 @@ https://sh-proxy.nestjs.workers.dev/https://目标网址
 
 \`\`\`bash
 # 加速安装 NVM (Node Version Manager)
-curl -fsSL https://sh-proxy.nestjs.workers.dev/raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+curl -fsSL https://你的域名/raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
 
 # 或使用完整 URL 格式
-curl -fsSL https://sh-proxy.nestjs.workers.dev/https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+curl -fsSL https://你的域名/https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
 \`\`\`
 
 **2. 代理 Bun 安装脚本**
 
 \`\`\`bash
 # 纯域名格式（推荐）
-curl -fsSL https://sh-proxy.nestjs.workers.dev/bun.sh/install | bash
+curl -fsSL https://你的域名/bun.sh/install | bash
 
 # 完整 URL 格式
-curl -fsSL https://sh-proxy.nestjs.workers.dev/https://bun.sh/install | bash
+curl -fsSL https://你的域名/https://bun.sh/install | bash
 \`\`\`
 
 **3. 代理 GitHub Raw 文件**
 
 \`\`\`bash
 # 纯域名格式
-curl -fsSL https://sh-proxy.nestjs.workers.dev/raw.githubusercontent.com/user/repo/main/install.sh | bash
+curl -fsSL https://你的域名/raw.githubusercontent.com/user/repo/main/install.sh | bash
 
 # 完整 URL 格式
-curl -fsSL https://sh-proxy.nestjs.workers.dev/https://raw.githubusercontent.com/user/repo/main/install.sh | bash
+curl -fsSL https://你的域名/https://raw.githubusercontent.com/user/repo/main/install.sh | bash
 \`\`\`
 
 **4. 代理 GitHub 下载文件（自动使用 gh-proxy.net）**
@@ -147,7 +147,7 @@ curl -fsSL https://sh-proxy.nestjs.workers.dev/https://raw.githubusercontent.com
 \`\`\`bash
 # 下载 GitHub Releases 文件
 # 脚本中的 github.com 链接会自动转换为 gh-proxy.net 完整 URL 代理
-curl -fsSL https://sh-proxy.nestjs.workers.dev/https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip -o bun.zip
+curl -fsSL https://你的域名/https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip -o bun.zip
 
 # 实际代理后的 URL 格式：https://gh-proxy.net/https://github.com/oven-sh/bun/releases/...
 \`\`\`
@@ -156,20 +156,20 @@ curl -fsSL https://sh-proxy.nestjs.workers.dev/https://github.com/oven-sh/bun/re
 
 \`\`\`bash
 # 使用 wget
-wget -qO- https://sh-proxy.nestjs.workers.dev/example.com/setup.sh | sh
+wget -qO- https://你的域名/example.com/setup.sh | sh
 
 # 使用 curl
-curl -sSL https://sh-proxy.nestjs.workers.dev/get.docker.com | sh
+curl -sSL https://你的域名/get.docker.com | sh
 \`\`\`
 
 #### Python 脚本代理
 
 \`\`\`bash
 # 代理 Python 安装脚本
-curl -fsSL https://sh-proxy.nestjs.workers.dev/pyenv.run | bash
+curl -fsSL https://你的域名/pyenv.run | bash
 
 # 或者使用 wget
-wget -qO- https://sh-proxy.nestjs.workers.dev/get.poetry.io | python3 -
+wget -qO- https://你的域名/get.poetry.io | python3 -
 \`\`\`
 
 ### 支持的脚本类型
