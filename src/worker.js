@@ -167,7 +167,7 @@ async function handleRequest(request) {
 
   // Root path - show usage instructions
   if (pathname === '/' || pathname === '') {
-    return getUsageResponse();
+    return getUsageResponse(request);
   }
 
   // Extract target URL from path (remove leading slash)
@@ -507,9 +507,14 @@ function isProxyLoop(targetUrl, request) {
 
 /**
  * Get usage instructions response
+ * @param {Request} request - The incoming request
  * @returns {Response} - Response with usage instructions
  */
-function getUsageResponse() {
+function getUsageResponse(request) {
+  // Get current domain from request
+  const requestUrl = new URL(request.url);
+  const currentDomain = requestUrl.host;
+
   const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -618,11 +623,11 @@ function getUsageResponse() {
                 <p>在您的域名后添加 <code>/</code> 和目标 URL（支持纯域名格式）：</p>
                 <div class="example">
                     <div class="example-title">完整 URL 格式：</div>
-                    <code>https://your-worker.dev/https://raw.githubusercontent.com/user/repo/main/install.sh</code>
+                    <code>https://${currentDomain}/https://raw.githubusercontent.com/user/repo/main/install.sh</code>
                 </div>
                 <div class="example">
                     <div class="example-title">纯域名格式（推荐）：</div>
-                    <code>https://your-worker.dev/raw.githubusercontent.com/user/repo/main/install.sh</code>
+                    <code>https://${currentDomain}/raw.githubusercontent.com/user/repo/main/install.sh</code>
                 </div>
             </div>
         </div>
@@ -630,16 +635,20 @@ function getUsageResponse() {
         <div class="section">
             <h2>💡 示例</h2>
             <div class="example">
+                <div class="example-title">代理 NVM 安装脚本：</div>
+                <code>curl -fsSL https://${currentDomain}/raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash</code>
+            </div>
+            <div class="example">
                 <div class="example-title">代理 Bun 安装脚本：</div>
-                <code>curl -fsSL https://your-worker.dev/bun.sh/install | bash</code>
+                <code>curl -fsSL https://${currentDomain}/bun.sh/install | bash</code>
             </div>
             <div class="example">
                 <div class="example-title">代理 GitHub Raw 文件：</div>
-                <code>https://your-worker.dev/raw.githubusercontent.com/user/repo/main/script.sh</code>
+                <code>https://${currentDomain}/raw.githubusercontent.com/user/repo/main/script.sh</code>
             </div>
             <div class="example">
                 <div class="example-title">使用完整 URL：</div>
-                <code>https://your-worker.dev/https://example.com/install.py</code>
+                <code>https://${currentDomain}/https://example.com/install.py</code>
             </div>
         </div>
 

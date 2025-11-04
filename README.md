@@ -112,7 +112,17 @@ https://sh-proxy.nestjs.workers.dev/https://目标网址
 
 #### Shell 脚本代理
 
-**1. 代理 Bun 安装脚本**
+**1. 代理 NVM 安装脚本**
+
+\`\`\`bash
+# 加速安装 NVM (Node Version Manager)
+curl -fsSL https://sh-proxy.nestjs.workers.dev/raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+
+# 或使用完整 URL 格式
+curl -fsSL https://sh-proxy.nestjs.workers.dev/https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+\`\`\`
+
+**2. 代理 Bun 安装脚本**
 
 \`\`\`bash
 # 纯域名格式（推荐）
@@ -122,7 +132,7 @@ curl -fsSL https://sh-proxy.nestjs.workers.dev/bun.sh/install | bash
 curl -fsSL https://sh-proxy.nestjs.workers.dev/https://bun.sh/install | bash
 \`\`\`
 
-**2. 代理 GitHub Raw 文件**
+**3. 代理 GitHub Raw 文件**
 
 \`\`\`bash
 # 纯域名格式
@@ -132,7 +142,7 @@ curl -fsSL https://sh-proxy.nestjs.workers.dev/raw.githubusercontent.com/user/re
 curl -fsSL https://sh-proxy.nestjs.workers.dev/https://raw.githubusercontent.com/user/repo/main/install.sh | bash
 \`\`\`
 
-**3. 代理 GitHub 下载文件（自动使用 gh-proxy.net）**
+**4. 代理 GitHub 下载文件（自动使用 gh-proxy.net）**
 
 \`\`\`bash
 # 下载 GitHub Releases 文件
@@ -142,7 +152,7 @@ curl -fsSL https://sh-proxy.nestjs.workers.dev/https://github.com/oven-sh/bun/re
 # 实际代理后的 URL 格式：https://gh-proxy.net/https://github.com/oven-sh/bun/releases/...
 \`\`\`
 
-**4. 下载并执行脚本**
+**5. 下载并执行脚本**
 
 \`\`\`bash
 # 使用 wget
