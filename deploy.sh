@@ -27,9 +27,9 @@ if [ ! -d "node_modules" ]; then
     npm install
 fi
 
-# 部署
-echo "📤 部署中..."
-npx wrangler deploy
+# 部署到生产环境
+echo "📤 部署到生产环境..."
+npx wrangler deploy --env production
 
 if [ $? -eq 0 ]; then
     echo "✅ 部署成功！"

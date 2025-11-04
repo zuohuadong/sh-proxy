@@ -119,6 +119,13 @@ const CONFIG = {
     'crates.io': {
       primary: 'rsproxy.cn',
       fallback: []
+    },
+
+    // Bun
+    'bun.sh': {
+      primary: 'raw.gitmirror.com/oven-sh/bun/main/src',
+      fallback: ['raw.githubusercontent.com/oven-sh/bun/main/src'],
+      type: 'domain-replace'
     }
   },
 
@@ -139,15 +146,10 @@ const CONFIG = {
   // 请求超时（毫秒）
   REQUEST_TIMEOUT: 30000,
 
-  // 域名健康检查超时（毫秒）
-  HEALTH_CHECK_TIMEOUT: 5000,
 
-  // 域名健康检查缓存时间（秒）
-  HEALTH_CHECK_CACHE: 3600,
 };
 
-// 域名健康状态缓存（内存缓存，Worker 重启后重置）
-const domainHealthCache = new Map();
+
 
 /**
  * Main event listener for fetch requests
@@ -207,8 +209,11 @@ async function handleRequest(request) {
       });
     }
 
+    // 替换 URL 中的域名为镜像域名
+    const mirroredUrl = replaceUrlWithMirror(targetUrl);
+    
     // Fetch target content
-    const response = await fetchWithTimeout(targetUrl, {
+    const response = await fetchWithTimeout(mirroredUrl, {
       method: request.method,
       headers: getProxyHeaders(request.headers),
       redirect: 'follow'
@@ -260,7 +265,7 @@ async function processResponse(response, targetUrl) {
   if (shouldProcess) {
     // Get text content and replace links
     const text = await response.text();
-    content = await replaceLinkss(text);
+    content = replaceLinkss(text);
   } else {
     // For binary content (images, downloads, etc.), pass through as-is
     content = response.body;
@@ -301,47 +306,41 @@ async function processResponse(response, targetUrl) {
   });
 }
 
+
+
 /**
- * 检查域名健康状态
- * @param {string} domain - 要检查的域名
- * @returns {Promise<boolean>} - 域名是否可访问
+ * 替换请求 URL 中的域名为镜像域名
+ * @param {string} targetUrl - 目标 URL
+ * @returns {Promise<string>} - 替换后的 URL
  */
-async function checkDomainHealth(domain) {
-  // 检查缓存
-  const cached = domainHealthCache.get(domain);
-  if (cached && (Date.now() - cached.timestamp) < CONFIG.HEALTH_CHECK_CACHE * 1000) {
-    return cached.healthy;
-  }
-
+function replaceUrlWithMirror(targetUrl) {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), CONFIG.HEALTH_CHECK_TIMEOUT);
+    const url = new URL(targetUrl);
+    const domain = url.hostname;
+    
+    // 检查是否有镜像配置
+    const config = CONFIG.MIRRORS[domain];
+    if (!config) {
+      return targetUrl;
+    }
 
-    const response = await fetch(`https://${domain}`, {
-      method: 'HEAD',
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
-
-    clearTimeout(timeoutId);
-    const healthy = response.status < 500;
-
-    // 缓存结果
-    domainHealthCache.set(domain, {
-      healthy,
-      timestamp: Date.now()
-    });
-
-    return healthy;
+    // 获取镜像域名（由 CI 保证可用性）
+    const mirror = getBestMirror(domain);
+    
+    // 获取镜像类型，默认为 domain-replace
+    const type = config.type || 'domain-replace';
+    
+    if (type === 'full-url-proxy') {
+      // 完整 URL 代理模式：https://gh-proxy.net/https://github.com/...
+      return `https://${mirror}/${targetUrl}`;
+    } else {
+      // 域名替换模式：直接替换域名
+      url.hostname = mirror;
+      return url.toString();
+    }
   } catch (error) {
-    // 请求失败，认为域名不健康
-    domainHealthCache.set(domain, {
-      healthy: false,
-      timestamp: Date.now()
-    });
-    return false;
+    // URL 解析失败，返回原始 URL
+    return targetUrl;
   }
 }
 
@@ -350,29 +349,13 @@ async function checkDomainHealth(domain) {
  * @param {string} originalDomain - 原始域名
  * @returns {Promise<string>} - 最佳镜像域名
  */
-async function getBestMirror(originalDomain) {
+function getBestMirror(originalDomain) {
   const config = CONFIG.MIRRORS[originalDomain];
   if (!config) {
     return originalDomain;
   }
 
-  // 首先尝试 primary
-  const primaryHealthy = await checkDomainHealth(config.primary);
-  if (primaryHealthy) {
-    return config.primary;
-  }
-
-  // primary 不可用，尝试 fallback
-  if (config.fallback && config.fallback.length > 0) {
-    for (const fallbackDomain of config.fallback) {
-      const fallbackHealthy = await checkDomainHealth(fallbackDomain);
-      if (fallbackHealthy) {
-        return fallbackDomain;
-      }
-    }
-  }
-
-  // 所有镜像都不可用，返回 primary（让请求继续尝试）
+  // 直接返回 primary 镜像，由 CI 保证其可用性
   return config.primary;
 }
 
@@ -381,13 +364,13 @@ async function getBestMirror(originalDomain) {
  * @param {string} content - The content to process
  * @returns {Promise<string>} - The content with replaced links
  */
-async function replaceLinkss(content) {
+function replaceLinkss(content) {
   let result = content;
 
   // 遍历所有镜像配置
   for (const [domain, config] of Object.entries(CONFIG.MIRRORS)) {
-    // 获取最佳镜像（优先使用 primary，如果不可用则使用 fallback）
-    const mirror = await getBestMirror(domain);
+    // 获取镜像域名（由 CI 保证可用性）
+    const mirror = getBestMirror(domain);
 
     // 获取镜像类型，默认为 domain-replace
     const type = config.type || 'domain-replace';

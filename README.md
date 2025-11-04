@@ -86,6 +86,8 @@ npm run dev
 
 ### 部署
 
+#### 手动部署
+
 部署到 Cloudflare Workers：
 
 ```bash
@@ -93,6 +95,43 @@ npm run deploy
 ```
 
 部署成功后，您将获得一个 `*.workers.dev` 域名。
+
+#### 自动部署（推荐）
+
+本项目支持通过 GitHub Actions 自动部署到 Cloudflare Workers。
+
+**设置步骤：**
+
+1. **获取 Cloudflare API Token**
+   - 访问 [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens)
+   - 点击 "创建令牌" 或 "Create Token"
+   - 选择 "自定义令牌" 或 "Custom token"
+   - 配置权限：
+     - **账户** - `Cloudflare Workers:Edit`
+     - **区域** - `Zone:Read`（如果使用自定义域名）
+   - 复制生成的 API Token
+
+2. **获取 Cloudflare Account ID**
+   - 在 Cloudflare Dashboard 右侧边栏找到 "Account ID"
+   - 复制 Account ID
+
+3. **配置 GitHub Secrets**
+   - 进入您的 GitHub 仓库
+   - 点击 "Settings" → "Secrets and variables" → "Actions"
+   - 添加以下 Secrets：
+     - `CLOUDFLARE_API_TOKEN`: 您的 API Token
+     - `CLOUDFLARE_ACCOUNT_ID`: 您的 Account ID
+
+4. **触发自动部署**
+   - 推送代码到 `main` 或 `master` 分支
+   - 或者在 Actions 页面手动触发 "Deploy to Cloudflare Workers" 工作流
+
+**自动部署特性：**
+- ✅ 代码推送到主分支时自动部署
+- ✅ 只有当 `src/`、`wrangler.toml` 或 `package.json` 发生变化时才触发
+- ✅ 支持手动触发部署
+- ✅ 部署到生产环境 (`--env production`)
+- ✅ 使用官方 Cloudflare Wrangler Action
 
 ### 绑定自定义域名
 

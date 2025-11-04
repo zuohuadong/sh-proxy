@@ -4,9 +4,11 @@
   "description": "Cloudflare Worker proxy for GitHub and npm acceleration",
   "main": "src/index.js",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "tail": "wrangler tail"
+    "dev": "bunx wrangler dev",
+    "deploy": "bunx wrangler deploy --env production",
+    "deploy:dev": "bunx wrangler deploy --env dev",
+    "tail": "bunx wrangler tail",
+    "health-check": "bun scripts/health-check.js"
   },
   "keywords": [
     "cloudflare",
