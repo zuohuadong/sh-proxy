@@ -75,19 +75,63 @@ const CONFIG = {
     // DockerHub 官方镜像仓库
     'docker.io': {
       primary: 'docker.mirrors.ustc.edu.cn',
-      fallback: ['dockerproxy.com', 'hub-mirror.c.163.com']
+      fallback: [
+        'dockerproxy.com',
+        'hub-mirror.c.163.com',
+        'docker.1ms.run',
+        'docker.1panel.live',
+        'dockerproxy.net',
+        'hub.rat.dev',
+        'docker.xuanyuan.me',
+        'dockerproxy.cool',
+        'docker.hlmirror.com',
+        'hub.amingg.com',
+        'docker.amingg.com',
+        'docker-registry.nmqu.com',
+        'docker.apiba.cn',
+        'docker.367231.xyz',
+        'hub.1panel.dev',
+        'proxy.vvvv.ee',
+        'docker.m.ixdev.cn',
+        'hub1.nat.tf',
+        'hub2.nat.tf',
+        'hub3.nat.tf',
+        'hub4.nat.tf'
+      ]
     },
     'registry-1.docker.io': {
       primary: 'docker.mirrors.ustc.edu.cn',
-      fallback: ['dockerproxy.com']
+      fallback: [
+        'dockerproxy.com',
+        'docker.1ms.run',
+        'docker.1panel.live',
+        'dockerproxy.net',
+        'hub.rat.dev',
+        'docker.xuanyuan.me',
+        'dockerproxy.cool',
+        'docker.hlmirror.com',
+        'hub.amingg.com',
+        'docker.apiba.cn'
+      ]
     },
     'index.docker.io': {
       primary: 'docker.mirrors.ustc.edu.cn',
-      fallback: ['dockerproxy.com']
+      fallback: [
+        'dockerproxy.com',
+        'docker.1ms.run',
+        'docker.1panel.live',
+        'dockerproxy.net',
+        'dockerproxy.cool',
+        'docker.hlmirror.com'
+      ]
     },
     'registry.hub.docker.com': {
       primary: 'docker.mirrors.ustc.edu.cn',
-      fallback: []
+      fallback: [
+        'docker.1ms.run',
+        'dockerproxy.net',
+        'dockerproxy.cool'
+      ]
     },
     // 其他容器镜像源
     'gcr.io': {
