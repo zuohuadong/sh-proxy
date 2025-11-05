@@ -467,14 +467,14 @@ async function handleHtmlRedirect(html, baseUrl, originalRequest) {
 
     // 检查 JavaScript 跳转逻辑
     const jsRedirectPatterns = [
-      // window.location.href = "url"
-      /window\.location\.href\s*=\s*["'`]([^"'`]+)["'`]/i,
-      // window.location = "url"
-      /window\.location\s*=\s*["'`]([^"'`]+)["'`]/i,
-      // location.href = "url"
-      /location\.href\s*=\s*["'`]([^"'`]+)["'`]/i,
       // 模板字符串跳转: `${targetLang}.html`
       /window\.location\.href\s*=\s*`([^`]+)`/i,
+      // window.location.href = "url"
+      /window\.location\.href\s*=\s*["']([^"']+)["']/i,
+      // window.location = "url"
+      /window\.location\s*=\s*["']([^"']+)["']/i,
+      // location.href = "url"
+      /location\.href\s*=\s*["']([^"']+)["']/i,
     ];
 
     for (const pattern of jsRedirectPatterns) {
@@ -482,10 +482,13 @@ async function handleHtmlRedirect(html, baseUrl, originalRequest) {
       if (match) {
         let redirectUrl = match[1];
         
+        console.log(`JavaScript 跳转匹配: ${redirectUrl}`);
+        
         // 处理模板字符串中的变量替换
         if (redirectUrl.includes('${')) {
           redirectUrl = await evaluateJsRedirect(html, baseUrl, originalRequest);
           if (redirectUrl) {
+            console.log(`模板字符串跳转结果: ${redirectUrl}`);
             return redirectUrl;
           }
         } else {
@@ -574,12 +577,6 @@ async function handleHtmlRedirect(html, baseUrl, originalRequest) {
  */
 async function evaluateJsRedirect(html, baseUrl, originalRequest) {
   try {
-    // 提取 JavaScript 代码
-    const scriptMatch = html.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
-    if (!scriptMatch) return null;
-
-    const scriptContent = scriptMatch[1];
-    
     // 从请求头获取语言信息
     const acceptLanguage = originalRequest?.headers.get('Accept-Language') || 'en-US,en;q=0.9';
     const mockNavigator = {
@@ -587,21 +584,34 @@ async function evaluateJsRedirect(html, baseUrl, originalRequest) {
       userLanguage: acceptLanguage.split(',')[0] || 'en-US'
     };
 
-    // 简单的 JavaScript 执行模拟
-    // 检查语言检测逻辑
-    if (scriptContent.includes('browserLang') && scriptContent.includes('targetLang')) {
-      let targetLang = 'en'; // 默认英文
+    // 模拟语言匹配逻辑
+    let targetLang = 'en'; // 默认英文
+    const browserLang = mockNavigator.language || mockNavigator.userLanguage;
+    
+    if (/^ja/i.test(browserLang)) {
+      targetLang = 'ja';
+    } else if (/^zh/i.test(browserLang)) {
+      targetLang = 'zh';
+    }
+    
+    console.log(`JavaScript 语言检测: ${browserLang} -> ${targetLang}`);
+    
+    // 查找模板字符串模式并替换变量
+    const templateMatch = html.match(/window\.location\.href\s*=\s*`([^`]+)`/i);
+    if (templateMatch) {
+      let template = templateMatch[1];
       
-      // 模拟语言匹配逻辑
-      const browserLang = mockNavigator.language || mockNavigator.userLanguage;
-      if (/^ja/i.test(browserLang)) {
-        targetLang = 'ja';
-      } else if (/^zh/i.test(browserLang)) {
-        targetLang = 'zh';
-      }
+      // 替换 ${targetLang} 变量
+      template = template.replace(/\$\{targetLang\}/g, targetLang);
       
-      // 构建跳转 URL
+      console.log(`模板字符串替换结果: ${template}`);
+      return resolveUrl(template, baseUrl);
+    }
+
+    // 如果没有找到模板字符串，尝试构建标准的跳转URL
+    if (html.includes('targetLang')) {
       const redirectUrl = `${targetLang}.html`;
+      console.log(`标准跳转构建: ${redirectUrl}`);
       return resolveUrl(redirectUrl, baseUrl);
     }
 
