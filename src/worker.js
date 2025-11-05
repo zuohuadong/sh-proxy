@@ -631,7 +631,7 @@ async function evaluateJsRedirect(html, baseUrl, originalRequest) {
 function extractScriptLinks(html, baseUrl) {
   const scriptUrls = [];
   
-  // 常见的脚本链接模式
+  // 通用的脚本链接模式
   const patterns = [
     // GitHub raw links
     /https?:\/\/raw\.githubusercontent\.com\/[^"'\s>]+\.sh/gi,
@@ -646,6 +646,12 @@ function extractScriptLinks(html, baseUrl) {
     // 安装脚本的常见模式
     /https?:\/\/[^"'\s>]+\/install/gi,
     /https?:\/\/[^"'\s>]+\/setup/gi,
+    
+    // 通用脚本命令模式 - 从 wget/curl 命令中提取URL
+    /(?:wget|curl)[^|]*?(?:-qO-|--silent|--location)[^|]*?\s+([^\s|]+)/gi,
+    
+    // 脚本域名模式 - 如果页面提到某个脚本域名
+    /(?:wget|curl)[^|]*?\s+([a-zA-Z0-9.-]+\.(?:sh|com|org|net)(?:\/[^\s|]*)?)/gi,
   ];
   
   for (const pattern of patterns) {
@@ -653,16 +659,57 @@ function extractScriptLinks(html, baseUrl) {
     while ((match = pattern.exec(html)) !== null) {
       let url = match[0];
       
-      // 如果是 href 匹配，取第一个捕获组
+      // 如果是 href 匹配或命令匹配，取第一个捕获组
       if (match[1]) {
         url = match[1];
       }
       
-      // 解析为绝对 URL
-      const absoluteUrl = resolveUrl(url, baseUrl);
+      // 清理URL，移除可能的命令参数
+      url = url.replace(/^.*?(https?:\/\/[^\s|]+).*$/, '$1');
       
-      if (!scriptUrls.includes(absoluteUrl)) {
-        scriptUrls.push(absoluteUrl);
+      // 如果URL不包含协议，尝试添加https://
+      if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+        // 检查是否是域名格式
+        if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(url)) {
+          url = 'https://' + url;
+        }
+      }
+      
+      // 解析为绝对 URL
+      try {
+        const absoluteUrl = resolveUrl(url, baseUrl);
+        
+        if (absoluteUrl && !scriptUrls.includes(absoluteUrl)) {
+          scriptUrls.push(absoluteUrl);
+        }
+      } catch (error) {
+        // 忽略无效的URL
+        console.log(`忽略无效URL: ${url}`);
+      }
+    }
+  }
+  
+  // 如果没有找到明确的脚本链接，但页面包含脚本相关的命令
+  // 尝试从当前域名构建可能的脚本URL
+  if (scriptUrls.length === 0) {
+    const scriptCommands = html.match(/(?:wget|curl)[^|]*?([a-zA-Z0-9.-]+(?:\.sh|\.com|\.org|\.net))/gi);
+    if (scriptCommands) {
+      for (const command of scriptCommands) {
+        const domainMatch = command.match(/([a-zA-Z0-9.-]+(?:\.sh|\.com|\.org|\.net))/);
+        if (domainMatch) {
+          const domain = domainMatch[1];
+          const possibleUrls = [
+            `https://${domain}`,
+            `https://raw.githubusercontent.com/teddysun/across/master/${domain}`,
+            `https://github.com/teddysun/across/raw/master/${domain}`
+          ];
+          
+          for (const possibleUrl of possibleUrls) {
+            if (!scriptUrls.includes(possibleUrl)) {
+              scriptUrls.push(possibleUrl);
+            }
+          }
+        }
       }
     }
   }
