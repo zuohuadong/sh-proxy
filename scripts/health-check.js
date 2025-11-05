@@ -81,89 +81,144 @@ async function getBestMirror(config) {
 }
 
 /**
- * 主函数
+ * 解析 MIRRORS 配置
+ * @param {string} workerContent - worker.js 文件内容
+ * @returns {Object} - 解析后的镜像配置
  */
-async function main() {
-  console.log('Starting domain health check...');
-  
-  // 读取当前的 worker.js 文件
-  const workerContent = fs.readFileSync('src/worker.js', 'utf8');
-  
-  // 提取 MIRRORS 配置
-  const mirrorMatch = workerContent.match(/MIRRORS:\s*{([^}]+(?:{[^}]*}[^}]*)*)}/s);
+function parseMirrorConfig(workerContent) {
+  // 提取 MIRRORS 对象的内容
+  const mirrorMatch = workerContent.match(/MIRRORS:\s*{([\s\S]*?)},\s*\/\/ 可处理的内容类型/);
   if (!mirrorMatch) {
-    console.error('Could not find MIRRORS configuration in worker.js');
-    process.exit(1);
+    throw new Error('Could not find MIRRORS configuration in worker.js');
   }
   
-  // 解析镜像配置（简单的字符串解析）
   const mirrorsText = mirrorMatch[1];
-  const domainMatches = mirrorsText.match(/'([^']+)':\s*{[^}]*primary:\s*'([^']+)'[^}]*(?:fallback:\s*\[([^\]]*)\])?[^}]*}/g);
+  const configs = {};
   
-  if (!domainMatches) {
-    console.error('Could not parse mirror configurations');
-    process.exit(1);
-  }
+  // 使用更精确的正则表达式匹配每个域名配置
+  const domainRegex = /'([^']+)':\s*{([\s\S]*?)}/g;
+  let match;
   
-  let hasChanges = false;
-  let newWorkerContent = workerContent;
-  
-  // 检查每个域名配置
-  for (const match of domainMatches) {
-    const domainMatch = match.match(/'([^']+)':/);
-    const primaryMatch = match.match(/primary:\s*'([^']+)'/);
-    const fallbackMatch = match.match(/fallback:\s*\[([^\]]*)\]/);
+  while ((match = domainRegex.exec(mirrorsText)) !== null) {
+    const domain = match[1];
+    const configText = match[2];
     
-    if (!domainMatch || !primaryMatch) continue;
+    // 解析 primary
+    const primaryMatch = configText.match(/primary:\s*'([^']+)'/);
+    if (!primaryMatch) continue;
     
-    const domain = domainMatch[1];
-    const currentPrimary = primaryMatch[1];
+    const primary = primaryMatch[1];
     
-    // 解析 fallback 数组
+    // 解析 fallback
     let fallback = [];
-    if (fallbackMatch && fallbackMatch[1]) {
+    const fallbackMatch = configText.match(/fallback:\s*\[([^\]]*)\]/);
+    if (fallbackMatch && fallbackMatch[1].trim()) {
       fallback = fallbackMatch[1]
         .split(',')
         .map(s => s.trim().replace(/['"]/g, ''))
         .filter(s => s.length > 0);
     }
     
-    console.log(`\nChecking domain: ${domain}`);
-    console.log(`Current primary: ${currentPrimary}`);
-    console.log(`Fallback options: ${fallback.join(', ') || 'none'}`);
+    // 解析 type
+    const typeMatch = configText.match(/type:\s*'([^']+)'/);
+    const type = typeMatch ? typeMatch[1] : 'domain-replace';
     
-    const config = {
-      primary: currentPrimary,
-      fallback: fallback
-    };
-    
-    const bestMirror = await getBestMirror(config);
-    
-    // 如果最佳镜像与当前 primary 不同，需要更新
-    if (bestMirror !== currentPrimary) {
-      console.log(`🔄 Updating ${domain}: ${currentPrimary} -> ${bestMirror}`);
-      
-      // 更新配置：将最佳镜像设为 primary，原 primary 加入 fallback
-      const newFallback = [currentPrimary, ...fallback.filter(f => f !== bestMirror)];
-      
-      const oldConfig = match;
-      const newConfig = oldConfig
-        .replace(/primary:\s*'[^']+'/, `primary: '${bestMirror}'`)
-        .replace(/fallback:\s*\[[^\]]*\]/, `fallback: [${newFallback.map(f => `'${f}'`).join(', ')}]`);
-      
-      newWorkerContent = newWorkerContent.replace(oldConfig, newConfig);
-      hasChanges = true;
-    } else {
-      console.log(`✓ ${domain} configuration is optimal`);
-    }
+    configs[domain] = { primary, fallback, type };
   }
   
-  // 如果有变化，写入文件
-  if (hasChanges) {
-    fs.writeFileSync('src/worker.js', newWorkerContent);
-    console.log('\n🎉 Updated worker.js with new mirror configurations');
-  } else {
-    console.log('\n✅ All mirror configurations are optimal, no changes needed');
+  return configs;
+}
+
+/**
+ * 更新 worker.js 中的镜像配置
+ * @param {string} workerContent - 原始内容
+ * @param {string} domain - 域名
+ * @param {Object} oldConfig - 旧配置
+ * @param {Object} newConfig - 新配置
+ * @returns {string} - 更新后的内容
+ */
+function updateMirrorConfig(workerContent, domain, oldConfig, newConfig) {
+  // 构建新的配置字符串
+  let newConfigStr = `    '${domain}': {\n      primary: '${newConfig.primary}',\n      fallback: [${newConfig.fallback.map(f => `'${f}'`).join(', ')}]`;
+  
+  if (newConfig.type && newConfig.type !== 'domain-replace') {
+    newConfigStr += `,\n      type: '${newConfig.type}'`;
+  }
+  
+  newConfigStr += '\n    }';
+  
+  // 创建匹配旧配置的正则表达式
+  const escapedDomain = domain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const oldConfigRegex = new RegExp(
+    `\\s*'${escapedDomain}':\\s*{[\\s\\S]*?}`,
+    'g'
+  );
+  
+  return workerContent.replace(oldConfigRegex, newConfigStr);
+}
+
+/**
+ * 主函数
+ */
+async function main() {
+  console.log('Starting domain health check...');
+  
+  try {
+    // 读取当前的 worker.js 文件
+    const workerContent = fs.readFileSync('src/worker.js', 'utf8');
+    
+    // 解析镜像配置
+    const configs = parseMirrorConfig(workerContent);
+    
+    if (Object.keys(configs).length === 0) {
+      console.error('No mirror configurations found');
+      process.exit(1);
+    }
+    
+    console.log(`Found ${Object.keys(configs).length} mirror configurations`);
+    
+    let hasChanges = false;
+    let newWorkerContent = workerContent;
+    
+    // 检查每个域名配置
+    for (const [domain, config] of Object.entries(configs)) {
+      console.log(`\nChecking domain: ${domain}`);
+      console.log(`Current primary: ${config.primary}`);
+      console.log(`Fallback options: ${config.fallback.join(', ') || 'none'}`);
+      
+      const bestMirror = await getBestMirror(config);
+      
+      // 如果最佳镜像与当前 primary 不同，需要更新
+      if (bestMirror !== config.primary) {
+        console.log(`🔄 Updating ${domain}: ${config.primary} -> ${bestMirror}`);
+        
+        // 更新配置：将最佳镜像设为 primary，原 primary 加入 fallback
+        const newFallback = [config.primary, ...config.fallback.filter(f => f !== bestMirror)];
+        
+        const newConfig = {
+          primary: bestMirror,
+          fallback: newFallback,
+          type: config.type
+        };
+        
+        newWorkerContent = updateMirrorConfig(newWorkerContent, domain, config, newConfig);
+        hasChanges = true;
+      } else {
+        console.log(`✓ ${domain} configuration is optimal`);
+      }
+    }
+    
+    // 如果有变化，写入文件
+    if (hasChanges) {
+      fs.writeFileSync('src/worker.js', newWorkerContent);
+      console.log('\n🎉 Updated worker.js with new mirror configurations');
+    } else {
+      console.log('\n✅ All mirror configurations are optimal, no changes needed');
+    }
+    
+  } catch (error) {
+    console.error('Error during health check:', error.message);
+    process.exit(1);
   }
 }
 

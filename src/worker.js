@@ -175,11 +175,7 @@ async function handleRequest(request) {
     targetUrl = 'https://' + targetUrl;
   }
 
-  // 特殊处理：bench.sh 应该指向 https://bench.sh 而不是其他镜像
-  if (targetUrl === 'https://bench.sh') {
-    // 直接使用原始 URL，不进行镜像替换
-    console.log('直接访问 bench.sh，不使用镜像');
-  }
+
 
   // Validate target URL
   if (!targetUrl) {
@@ -210,8 +206,8 @@ async function handleRequest(request) {
       });
     }
 
-    // 替换 URL 中的域名为镜像域名（bench.sh 除外）
-    const mirroredUrl = targetUrl === 'https://bench.sh' ? targetUrl : replaceUrlWithMirror(targetUrl);
+    // 替换 URL 中的域名为镜像域名
+    const mirroredUrl = replaceUrlWithMirror(targetUrl);
     
     console.log(`请求处理: ${targetUrl} -> ${mirroredUrl}`);
     
@@ -500,22 +496,7 @@ async function handleHtmlRedirect(html, baseUrl, originalRequest) {
       }
     }
 
-    // 检查特定的跳转逻辑（如 bench.sh 的语言检测）
-    if (html.includes('targetLang') && html.includes('.html')) {
-      // 根据 Accept-Language 头部检测语言
-      const acceptLanguage = originalRequest?.headers.get('Accept-Language') || 'en-US,en;q=0.9';
-      let targetLang = 'en'; // 默认英文
-      
-      // 语言匹配逻辑
-      if (/ja/i.test(acceptLanguage)) {
-        targetLang = 'ja';
-      } else if (/zh/i.test(acceptLanguage)) {
-        targetLang = 'zh';
-      }
-      
-      const redirectUrl = `${targetLang}.html`;
-      return resolveUrl(redirectUrl, baseUrl);
-    }
+
 
     // 通用的语言检测跳转处理
     if (html.includes('targetLang') || (html.includes('browserLang') && html.includes('window.location.href'))) {
