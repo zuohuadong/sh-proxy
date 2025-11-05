@@ -14,11 +14,7 @@
 通过 Open Collective 平台进行透明的资金管理：
 [https://opencollective.com/sh-proxy](https://opencollective.com/sh-proxy)
 
-**优势：**
-- 💳 支持信用卡、PayPal、银行转账
-- 📊 资金使用完全透明
-- 🧾 自动生成捐赠收据
-- 🌐 适合海外用户
+
 
 ### 💰 直接打赏（国内用户推荐）
 
@@ -27,15 +23,6 @@
 
 ![微信赞赏码](images/wechat-donate.png)
 
-#### 支付宝收款
-扫描下方二维码进行支付宝转账：
-
-![支付宝收款码](images/alipay-donate.png)
-
-#### 组合赞助码
-包含多种赞助方式的组合图片：
-
-![赞助支持](images/donate.png)
 
 ## 赞助者名单
 
