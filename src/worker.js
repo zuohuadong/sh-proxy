@@ -74,13 +74,10 @@ const CONFIG = {
     // 容器镜像
     // DockerHub 官方镜像仓库
     'docker.io': {
-      primary: 'docker.mirrors.ustc.edu.cn',
+      primary: 'dockerproxy.net',
       fallback: [
-        'dockerproxy.com',
-        'hub-mirror.c.163.com',
         'docker.1ms.run',
         'docker.1panel.live',
-        'dockerproxy.net',
         'hub.rat.dev',
         'docker.xuanyuan.me',
         'dockerproxy.cool',
@@ -100,12 +97,10 @@ const CONFIG = {
       ]
     },
     'registry-1.docker.io': {
-      primary: 'docker.mirrors.ustc.edu.cn',
+      primary: 'dockerproxy.net',
       fallback: [
-        'dockerproxy.com',
         'docker.1ms.run',
         'docker.1panel.live',
-        'dockerproxy.net',
         'hub.rat.dev',
         'docker.xuanyuan.me',
         'dockerproxy.cool',
@@ -115,21 +110,18 @@ const CONFIG = {
       ]
     },
     'index.docker.io': {
-      primary: 'docker.mirrors.ustc.edu.cn',
+      primary: 'dockerproxy.net',
       fallback: [
-        'dockerproxy.com',
         'docker.1ms.run',
         'docker.1panel.live',
-        'dockerproxy.net',
         'dockerproxy.cool',
         'docker.hlmirror.com'
       ]
     },
     'registry.hub.docker.com': {
-      primary: 'docker.mirrors.ustc.edu.cn',
+      primary: 'dockerproxy.net',
       fallback: [
         'docker.1ms.run',
-        'dockerproxy.net',
         'dockerproxy.cool'
       ]
     },
