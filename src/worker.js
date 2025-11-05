@@ -85,9 +85,10 @@ const CONFIG = {
       fallback: []
     },
 
-    // CDN 服务    'cdn.jsdelivr.net': {
-      primary: 'fastly.jsdelivr.net',
-      fallback: ['jsd.cdn.zzko.cn']
+    // CDN 服务
+    'cdn.jsdelivr.net': {
+      primary: 'jsd.cdn.zzko.cn',
+      fallback: ['fastly.jsdelivr.net']
     },
     'fonts.googleapis.com': {
       primary: 'fonts.googleapis.cn',
@@ -96,9 +97,10 @@ const CONFIG = {
     'fonts.gstatic.com': {
       primary: 'fonts.gstatic.cn',
       fallback: ['gstatic.loli.net']
-    },    'ajax.googleapis.com': {
-      primary: 'ajax.loli.net',
-      fallback: ['ajax.googleapis.cn']
+    },
+    'ajax.googleapis.com': {
+      primary: 'ajax.googleapis.cn',
+      fallback: ['ajax.loli.net']
     },
 
     // Maven
@@ -173,8 +175,6 @@ async function handleRequest(request) {
     targetUrl = 'https://' + targetUrl;
   }
 
-
-
   // Validate target URL
   if (!targetUrl) {
     return new Response(
@@ -205,29 +205,56 @@ async function handleRequest(request) {
     }
 
     // 替换 URL 中的域名为镜像域名
-    const mirroredUrl = replaceUrlWithMirror(targetUrl);
-    
-    console.log(`请求处理: ${targetUrl} -> ${mirroredUrl}`);
-    
-    // Fetch target content
-    const response = await fetchWithTimeout(mirroredUrl, {
-      method: request.method,
-      headers: getProxyHeaders(request.headers),
-      redirect: 'follow'
-    });
+    let currentUrl = targetUrl;
+    let redirectCount = 0;
+    const maxRedirects = 10;
 
-    if (!response.ok) {
-      return new Response(
-        `无法获取目标页面: ${response.status} ${response.statusText}`,
-        {
-          status: response.status,
-          headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+    while (redirectCount < maxRedirects) {
+      const mirroredUrl = replaceUrlWithMirror(currentUrl);
+
+      // Fetch target content with manual redirect handling
+      const response = await fetchWithTimeout(mirroredUrl, {
+        method: request.method,
+        headers: getProxyHeaders(request.headers, currentUrl),
+        redirect: 'manual'
+      });
+
+      // 检查是否是 HTTP 重定向
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get('location');
+        if (location) {
+          // 解析重定向目标 URL
+          const redirectTarget = resolveUrl(location, new URL(currentUrl));
+          console.log(`HTTP 重定向: ${currentUrl} -> ${redirectTarget}`);
+          currentUrl = redirectTarget;
+          redirectCount++;
+          continue;
         }
-      );
+      }
+
+      // 不是重定向，检查响应状态
+      if (!response.ok) {
+        return new Response(
+          `无法获取目标页面: ${response.status} ${response.statusText}`,
+          {
+            status: response.status,
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+          }
+        );
+      }
+
+      // Process response
+      return await processResponse(response, new URL(currentUrl));
     }
 
-    // Process response
-    return await processResponse(response, target, request);
+    // 重定向次数过多
+    return new Response(
+      '重定向次数过多',
+      {
+        status: 310,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+      }
+    );
 
   } catch (error) {
     console.error('Error handling request:', error);
@@ -248,10 +275,9 @@ async function handleRequest(request) {
  * Process the response from the target server
  * @param {Response} response - The response from target server
  * @param {URL} targetUrl - The target URL object
- * @param {Request} originalRequest - The original request (for language detection)
  * @returns {Promise<Response>} - The processed response
  */
-async function processResponse(response, targetUrl, originalRequest) {
+async function processResponse(response, targetUrl) {
   const contentType = response.headers.get('content-type') || '';
   let content;
 
@@ -267,90 +293,50 @@ async function processResponse(response, targetUrl, originalRequest) {
   } else if (contentType.includes('text/html')) {
     // 处理 HTML 响应，检查是否包含跳转逻辑
     const html = await response.text();
-    console.log(`处理HTML响应，URL: ${targetUrl.href}, 内容长度: ${html.length}`);
-    console.log(`HTML内容预览: ${html.substring(0, 200)}...`);
-    
-    const redirectUrl = await handleHtmlRedirect(html, targetUrl, originalRequest);
-    console.log(`跳转检测结果: ${redirectUrl}`);
+    const redirectUrl = await handleHtmlRedirect(html, targetUrl);
     
     if (redirectUrl) {
       // 如果检测到跳转，递归获取真正的脚本内容
       console.log(`检测到 HTML 跳转: ${targetUrl.href} -> ${redirectUrl}`);
-      
+
       try {
-        const redirectResponse = await fetchWithTimeout(redirectUrl, {
-          headers: getProxyHeaders(originalRequest.headers),
-          redirect: 'follow'
-        });
-        
-        if (redirectResponse.ok) {
-          const redirectContentType = redirectResponse.headers.get('content-type') || '';
-          
-          // 检查跳转后的内容是否是脚本
-          if (CONFIG.PROCESSABLE_CONTENT_TYPES.some(type => redirectContentType.includes(type))) {
-            // 是脚本内容，处理并返回
-            const scriptContent = await redirectResponse.text();
-            content = replaceLinkss(scriptContent);
-            
-            // 更新 content-type 为脚本类型
-            const headers = new Headers();
-            headers.set('Content-Type', 'text/plain; charset=utf-8');
-            headers.set('Access-Control-Allow-Origin', '*');
-            headers.set('Cache-Control', `public, max-age=${CONFIG.CACHE_MAX_AGE}`);
-            headers.set('X-Proxy-By', 'sh-proxy');
-            
-            return new Response(content, {
-              status: 200,
-              headers: headers
-            });
-          } else if (redirectContentType.includes('text/html')) {
-            // 跳转后仍然是HTML，尝试进一步处理
-            const redirectHtml = await redirectResponse.text();
-            
-            // 检查是否包含脚本下载链接
-            const scriptLinks = extractScriptLinks(redirectHtml, new URL(redirectUrl));
-            
-            if (scriptLinks.length > 0) {
-              // 尝试获取第一个脚本链接
-              console.log(`在跳转页面中找到脚本链接: ${scriptLinks[0]}`);
-              
-              try {
-                const scriptResponse = await fetchWithTimeout(scriptLinks[0], {
-                  headers: getProxyHeaders(originalRequest.headers),
-                  redirect: 'follow'
-                });
-                
-                if (scriptResponse.ok) {
-                  const scriptContentType = scriptResponse.headers.get('content-type') || '';
-                  if (CONFIG.PROCESSABLE_CONTENT_TYPES.some(type => scriptContentType.includes(type))) {
-                    const scriptContent = await scriptResponse.text();
-                    content = replaceLinkss(scriptContent);
-                    
-                    const headers = new Headers();
-                    headers.set('Content-Type', 'text/plain; charset=utf-8');
-                    headers.set('Access-Control-Allow-Origin', '*');
-                    headers.set('Cache-Control', `public, max-age=${CONFIG.CACHE_MAX_AGE}`);
-                    headers.set('X-Proxy-By', 'sh-proxy');
-                    
-                    return new Response(content, {
-                      status: 200,
-                      headers: headers
-                    });
-                  }
-                }
-              } catch (error) {
-                console.error('获取脚本链接失败:', error);
-              }
+        // 将跳转 URL 也通过镜像来访问，并禁用自动重定向
+        let currentUrl = redirectUrl;
+        let redirectCount = 0;
+        const maxRedirects = 5;
+
+        while (redirectCount < maxRedirects) {
+          const mirroredUrl = replaceUrlWithMirror(currentUrl);
+          console.log(`尝试获取: ${currentUrl} -> ${mirroredUrl}`);
+
+          const redirectResponse = await fetchWithTimeout(mirroredUrl, {
+            headers: getProxyHeaders(new Headers(), currentUrl),
+            redirect: 'manual' // 禁用自动重定向
+          });
+
+          // 检查是否是重定向响应
+          if (redirectResponse.status >= 300 && redirectResponse.status < 400) {
+            const location = redirectResponse.headers.get('location');
+            if (location) {
+              // 解析重定向目标 URL
+              currentUrl = resolveUrl(location, new URL(currentUrl));
+              console.log(`检测到 HTTP 重定向: ${location} -> ${currentUrl}`);
+              redirectCount++;
+              continue;
             }
-            
-            // 递归处理跳转后的响应
-            return await processResponse(redirectResponse, new URL(redirectUrl), originalRequest);
-          } else {
-            // 递归处理跳转后的响应
-            return await processResponse(redirectResponse, new URL(redirectUrl), originalRequest);
           }
-        } else {
-          console.error(`跳转请求失败: ${redirectResponse.status} ${redirectResponse.statusText}`);
+
+          // 不是重定向或没有 location，处理响应
+          if (redirectResponse.ok) {
+            return await processResponse(redirectResponse, new URL(currentUrl));
+          } else {
+            console.error(`请求失败: ${redirectResponse.status}`);
+            break;
+          }
+        }
+
+        if (redirectCount >= maxRedirects) {
+          console.error('重定向次数过多');
         }
       } catch (error) {
         console.error('跳转请求失败:', error);
@@ -358,51 +344,7 @@ async function processResponse(response, targetUrl, originalRequest) {
       }
     }
     
-    // 如果没有跳转或跳转失败，尝试从HTML中提取脚本链接
-    if (!redirectUrl) {
-      console.log('没有检测到跳转，尝试提取脚本链接');
-      const scriptLinks = extractScriptLinks(html, targetUrl);
-      console.log(`提取到的脚本链接: ${JSON.stringify(scriptLinks)}`);
-      
-      if (scriptLinks.length > 0) {
-        // 尝试获取第一个脚本链接
-        console.log(`尝试获取脚本: ${scriptLinks[0]}`);
-        
-        try {
-          const scriptResponse = await fetchWithTimeout(scriptLinks[0], {
-            headers: getProxyHeaders(originalRequest.headers),
-            redirect: 'follow'
-          });
-          
-          if (scriptResponse.ok) {
-            const scriptContentType = scriptResponse.headers.get('content-type') || '';
-            console.log(`脚本响应类型: ${scriptContentType}`);
-            
-            if (CONFIG.PROCESSABLE_CONTENT_TYPES.some(type => scriptContentType.includes(type))) {
-              const scriptContent = await scriptResponse.text();
-              content = replaceLinkss(scriptContent);
-              
-              console.log(`成功获取脚本，长度: ${content.length}`);
-              
-              const headers = new Headers();
-              headers.set('Content-Type', 'text/plain; charset=utf-8');
-              headers.set('Access-Control-Allow-Origin', '*');
-              headers.set('Cache-Control', `public, max-age=${CONFIG.CACHE_MAX_AGE}`);
-              headers.set('X-Proxy-By', 'sh-proxy');
-              
-              return new Response(content, {
-                status: 200,
-                headers: headers
-              });
-            }
-          }
-        } catch (error) {
-          console.error('获取脚本链接失败:', error);
-        }
-      }
-    }
-    
-    // 如果所有方法都失败，返回原始 HTML
+    // 如果没有跳转或跳转失败，返回原始 HTML
     content = html;
   } else {
     // For binary content (images, downloads, etc.), pass through as-is
@@ -501,10 +443,9 @@ function getBestMirror(originalDomain) {
  * Handle HTML redirect logic
  * @param {string} html - HTML content
  * @param {URL} baseUrl - Base URL for resolving relative URLs
- * @param {Request} originalRequest - Original request for language detection
  * @returns {Promise<string|null>} - Redirect URL or null if no redirect found
  */
-async function handleHtmlRedirect(html, baseUrl, originalRequest) {
+async function handleHtmlRedirect(html, baseUrl) {
   try {
     // 检查 meta refresh 跳转
     const metaRefreshMatch = html.match(/<meta[^>]*http-equiv=["']refresh["'][^>]*content=["'](\d+);?\s*url=([^"']+)["'][^>]*>/i);
@@ -515,14 +456,14 @@ async function handleHtmlRedirect(html, baseUrl, originalRequest) {
 
     // 检查 JavaScript 跳转逻辑
     const jsRedirectPatterns = [
+      // window.location.href = "url"
+      /window\.location\.href\s*=\s*["'`]([^"'`]+)["'`]/i,
+      // window.location = "url"
+      /window\.location\s*=\s*["'`]([^"'`]+)["'`]/i,
+      // location.href = "url"
+      /location\.href\s*=\s*["'`]([^"'`]+)["'`]/i,
       // 模板字符串跳转: `${targetLang}.html`
       /window\.location\.href\s*=\s*`([^`]+)`/i,
-      // window.location.href = "url"
-      /window\.location\.href\s*=\s*["']([^"']+)["']/i,
-      // window.location = "url"
-      /window\.location\s*=\s*["']([^"']+)["']/i,
-      // location.href = "url"
-      /location\.href\s*=\s*["']([^"']+)["']/i,
     ];
 
     for (const pattern of jsRedirectPatterns) {
@@ -530,13 +471,10 @@ async function handleHtmlRedirect(html, baseUrl, originalRequest) {
       if (match) {
         let redirectUrl = match[1];
         
-        console.log(`JavaScript 跳转匹配: ${redirectUrl}`);
-        
         // 处理模板字符串中的变量替换
         if (redirectUrl.includes('${')) {
-          redirectUrl = await evaluateJsRedirect(html, baseUrl, originalRequest);
+          redirectUrl = await evaluateJsRedirect(html, baseUrl);
           if (redirectUrl) {
-            console.log(`模板字符串跳转结果: ${redirectUrl}`);
             return redirectUrl;
           }
         } else {
@@ -545,68 +483,12 @@ async function handleHtmlRedirect(html, baseUrl, originalRequest) {
       }
     }
 
-
-
-    // 通用的语言检测跳转处理
-    if (html.includes('targetLang') || (html.includes('browserLang') && html.includes('window.location.href'))) {
-      // 根据 Accept-Language 头部检测语言
-      const acceptLanguage = originalRequest?.headers.get('Accept-Language') || 'en-US,en;q=0.9';
-      let targetLang = 'en'; // 默认英文
-      
-      // 语言匹配逻辑
-      if (/ja/i.test(acceptLanguage)) {
-        targetLang = 'ja';
-      } else if (/zh/i.test(acceptLanguage)) {
-        targetLang = 'zh';
-      }
-      
-      console.log(`语言检测: ${acceptLanguage} -> ${targetLang}`);
-      
-      // 尝试多种可能的跳转目标
-      const possibleTargets = [
-        `${targetLang}.html`,
-        `${targetLang}.sh`,
-        `${targetLang}`,
-        `script_${targetLang}.sh`,
-        `install_${targetLang}.sh`
-      ];
-      
-      // 返回第一个可能的目标
-      const redirectUrl = resolveUrl(possibleTargets[0], baseUrl);
-      console.log(`语言跳转目标: ${redirectUrl}`);
-      return redirectUrl;
-    }
-
-    // 检查是否包含自动跳转的 JavaScript（普通形式）
-    if (html.includes('window.location.href')) {
-      // 尝试提取跳转目标
-      const jsPatterns = [
-        /window\.location\.href\s*=\s*["`']([^"`']+)["`']/,
-        /location\.href\s*=\s*["`']([^"`']+)["`']/,
-        /window\.location\s*=\s*["`']([^"`']+)["`']/
-      ];
-      
-      for (const pattern of jsPatterns) {
-        const jsMatch = html.match(pattern);
-        if (jsMatch) {
-          console.log(`JavaScript 跳转检测: ${jsMatch[1]}`);
-          return resolveUrl(jsMatch[1], baseUrl);
-        }
-      }
-    }
-
-    // 检查 meta refresh 跳转（更宽松的匹配）
-    const metaPatterns = [
-      /<meta[^>]*http-equiv=["']?refresh["']?[^>]*content=["']?\d+;?\s*url=([^"'\s>]+)["']?[^>]*>/i,
-      /<meta[^>]*content=["']?\d+;?\s*url=([^"'\s>]+)["']?[^>]*http-equiv=["']?refresh["']?[^>]*>/i
-    ];
-    
-    for (const pattern of metaPatterns) {
-      const metaMatch = html.match(pattern);
-      if (metaMatch) {
-        console.log(`Meta refresh 跳转检测: ${metaMatch[1]}`);
-        return resolveUrl(metaMatch[1], baseUrl);
-      }
+    // 检查特定的跳转逻辑（如 bench.sh 的语言检测）
+    if (html.includes('targetLang') && html.includes('.html')) {
+      // 模拟浏览器语言检测，默认使用中文
+      const targetLang = 'zh'; // 可以根据 Accept-Language 头部动态设置
+      const redirectUrl = `${targetLang}.html`;
+      return resolveUrl(redirectUrl, baseUrl);
     }
 
     return null;
@@ -620,46 +502,37 @@ async function handleHtmlRedirect(html, baseUrl, originalRequest) {
  * Evaluate JavaScript redirect logic
  * @param {string} html - HTML content with JavaScript
  * @param {URL} baseUrl - Base URL
- * @param {Request} originalRequest - Original request for language detection
  * @returns {Promise<string|null>} - Evaluated redirect URL
  */
-async function evaluateJsRedirect(html, baseUrl, originalRequest) {
+async function evaluateJsRedirect(html, baseUrl) {
   try {
-    // 从请求头获取语言信息
-    const acceptLanguage = originalRequest?.headers.get('Accept-Language') || 'en-US,en;q=0.9';
+    // 提取 JavaScript 代码
+    const scriptMatch = html.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
+    if (!scriptMatch) return null;
+
+    const scriptContent = scriptMatch[1];
+    
+    // 模拟浏览器环境变量
     const mockNavigator = {
-      language: acceptLanguage.split(',')[0] || 'en-US',
-      userLanguage: acceptLanguage.split(',')[0] || 'en-US'
+      language: 'zh-CN',
+      userLanguage: 'zh-CN'
     };
 
-    // 模拟语言匹配逻辑
-    let targetLang = 'en'; // 默认英文
-    const browserLang = mockNavigator.language || mockNavigator.userLanguage;
-    
-    if (/^ja/i.test(browserLang)) {
-      targetLang = 'ja';
-    } else if (/^zh/i.test(browserLang)) {
-      targetLang = 'zh';
-    }
-    
-    console.log(`JavaScript 语言检测: ${browserLang} -> ${targetLang}`);
-    
-    // 查找模板字符串模式并替换变量
-    const templateMatch = html.match(/window\.location\.href\s*=\s*`([^`]+)`/i);
-    if (templateMatch) {
-      let template = templateMatch[1];
+    // 简单的 JavaScript 执行模拟
+    // 检查语言检测逻辑
+    if (scriptContent.includes('browserLang') && scriptContent.includes('targetLang')) {
+      let targetLang = 'en'; // 默认英文
       
-      // 替换 ${targetLang} 变量
-      template = template.replace(/\$\{targetLang\}/g, targetLang);
+      // 模拟语言匹配逻辑
+      const browserLang = mockNavigator.language || mockNavigator.userLanguage;
+      if (/^ja/.test(browserLang)) {
+        targetLang = 'ja';
+      } else if (/^zh/.test(browserLang)) {
+        targetLang = 'zh';
+      }
       
-      console.log(`模板字符串替换结果: ${template}`);
-      return resolveUrl(template, baseUrl);
-    }
-
-    // 如果没有找到模板字符串，尝试构建标准的跳转URL
-    if (html.includes('targetLang')) {
+      // 构建跳转 URL
       const redirectUrl = `${targetLang}.html`;
-      console.log(`标准跳转构建: ${redirectUrl}`);
       return resolveUrl(redirectUrl, baseUrl);
     }
 
@@ -668,101 +541,6 @@ async function evaluateJsRedirect(html, baseUrl, originalRequest) {
     console.error('执行 JavaScript 跳转逻辑失败:', error);
     return null;
   }
-}
-
-/**
- * Extract script download links from HTML content
- * @param {string} html - HTML content
- * @param {URL} baseUrl - Base URL for resolving relative URLs
- * @returns {Array<string>} - Array of script URLs
- */
-function extractScriptLinks(html, baseUrl) {
-  const scriptUrls = [];
-  
-  // 通用的脚本链接模式
-  const patterns = [
-    // GitHub raw links
-    /https?:\/\/raw\.githubusercontent\.com\/[^"'\s>]+\.sh/gi,
-    /https?:\/\/github\.com\/[^"'\s>]+\/raw\/[^"'\s>]+\.sh/gi,
-    
-    // 直接的 .sh 文件链接
-    /https?:\/\/[^"'\s>]+\.sh/gi,
-    
-    // 相对路径的 .sh 文件
-    /href=["']([^"']*\.sh)["']/gi,
-    
-    // 安装脚本的常见模式
-    /https?:\/\/[^"'\s>]+\/install/gi,
-    /https?:\/\/[^"'\s>]+\/setup/gi,
-    
-    // 通用脚本命令模式 - 从 wget/curl 命令中提取URL
-    /(?:wget|curl)[^|]*?(?:-qO-|--silent|--location)[^|]*?\s+([^\s|]+)/gi,
-    
-    // 脚本域名模式 - 如果页面提到某个脚本域名
-    /(?:wget|curl)[^|]*?\s+([a-zA-Z0-9.-]+\.(?:sh|com|org|net)(?:\/[^\s|]*)?)/gi,
-  ];
-  
-  for (const pattern of patterns) {
-    let match;
-    while ((match = pattern.exec(html)) !== null) {
-      let url = match[0];
-      
-      // 如果是 href 匹配或命令匹配，取第一个捕获组
-      if (match[1]) {
-        url = match[1];
-      }
-      
-      // 清理URL，移除可能的命令参数
-      url = url.replace(/^.*?(https?:\/\/[^\s|]+).*$/, '$1');
-      
-      // 如果URL不包含协议，尝试添加https://
-      if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
-        // 检查是否是域名格式
-        if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(url)) {
-          url = 'https://' + url;
-        }
-      }
-      
-      // 解析为绝对 URL
-      try {
-        const absoluteUrl = resolveUrl(url, baseUrl);
-        
-        if (absoluteUrl && !scriptUrls.includes(absoluteUrl)) {
-          scriptUrls.push(absoluteUrl);
-        }
-      } catch (error) {
-        // 忽略无效的URL
-        console.log(`忽略无效URL: ${url}`);
-      }
-    }
-  }
-  
-  // 如果没有找到明确的脚本链接，但页面包含脚本相关的命令
-  // 尝试从当前域名构建可能的脚本URL
-  if (scriptUrls.length === 0) {
-    const scriptCommands = html.match(/(?:wget|curl)[^|]*?([a-zA-Z0-9.-]+(?:\.sh|\.com|\.org|\.net))/gi);
-    if (scriptCommands) {
-      for (const command of scriptCommands) {
-        const domainMatch = command.match(/([a-zA-Z0-9.-]+(?:\.sh|\.com|\.org|\.net))/);
-        if (domainMatch) {
-          const domain = domainMatch[1];
-          const possibleUrls = [
-            `https://${domain}`,
-            `https://raw.githubusercontent.com/teddysun/across/master/${domain}`,
-            `https://github.com/teddysun/across/raw/master/${domain}`
-          ];
-          
-          for (const possibleUrl of possibleUrls) {
-            if (!scriptUrls.includes(possibleUrl)) {
-              scriptUrls.push(possibleUrl);
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  return scriptUrls;
 }
 
 /**
@@ -849,9 +627,23 @@ function escapeRegExp(string) {
  * @param {Headers} originalHeaders - Original request headers
  * @returns {Object} - Headers object for fetch
  */
-function getProxyHeaders(originalHeaders) {
+/**
+ * Get headers for proxy requests
+ * @param {Headers} originalHeaders - Original request headers
+ * @param {string} targetUrl - Target URL being requested
+ * @returns {Object} - Headers object for the proxy request
+ */
+function getProxyHeaders(originalHeaders, targetUrl = '') {
+  // 对于脚本文件，使用 curl UA 以触发正确的服务器响应
+  // 某些脚本托管服务（如 bench.sh）会根据 UA 返回不同内容：
+  // - 浏览器 UA -> HTML 页面
+  // - curl/wget UA -> 重定向到真正的脚本
+  const isScriptFile = /\.(sh|bash|py|rb|pl)$/.test(targetUrl);
+
   const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'User-Agent': isScriptFile
+      ? 'curl/8.0.0'
+      : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': '*/*',
     'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
   };
