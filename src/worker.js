@@ -267,7 +267,11 @@ async function processResponse(response, targetUrl, originalRequest) {
   } else if (contentType.includes('text/html')) {
     // 处理 HTML 响应，检查是否包含跳转逻辑
     const html = await response.text();
+    console.log(`处理HTML响应，URL: ${targetUrl.href}, 内容长度: ${html.length}`);
+    console.log(`HTML内容预览: ${html.substring(0, 200)}...`);
+    
     const redirectUrl = await handleHtmlRedirect(html, targetUrl, originalRequest);
+    console.log(`跳转检测结果: ${redirectUrl}`);
     
     if (redirectUrl) {
       // 如果检测到跳转，递归获取真正的脚本内容
@@ -354,7 +358,51 @@ async function processResponse(response, targetUrl, originalRequest) {
       }
     }
     
-    // 如果没有跳转或跳转失败，返回原始 HTML
+    // 如果没有跳转或跳转失败，尝试从HTML中提取脚本链接
+    if (!redirectUrl) {
+      console.log('没有检测到跳转，尝试提取脚本链接');
+      const scriptLinks = extractScriptLinks(html, targetUrl);
+      console.log(`提取到的脚本链接: ${JSON.stringify(scriptLinks)}`);
+      
+      if (scriptLinks.length > 0) {
+        // 尝试获取第一个脚本链接
+        console.log(`尝试获取脚本: ${scriptLinks[0]}`);
+        
+        try {
+          const scriptResponse = await fetchWithTimeout(scriptLinks[0], {
+            headers: getProxyHeaders(originalRequest.headers),
+            redirect: 'follow'
+          });
+          
+          if (scriptResponse.ok) {
+            const scriptContentType = scriptResponse.headers.get('content-type') || '';
+            console.log(`脚本响应类型: ${scriptContentType}`);
+            
+            if (CONFIG.PROCESSABLE_CONTENT_TYPES.some(type => scriptContentType.includes(type))) {
+              const scriptContent = await scriptResponse.text();
+              content = replaceLinkss(scriptContent);
+              
+              console.log(`成功获取脚本，长度: ${content.length}`);
+              
+              const headers = new Headers();
+              headers.set('Content-Type', 'text/plain; charset=utf-8');
+              headers.set('Access-Control-Allow-Origin', '*');
+              headers.set('Cache-Control', `public, max-age=${CONFIG.CACHE_MAX_AGE}`);
+              headers.set('X-Proxy-By', 'sh-proxy');
+              
+              return new Response(content, {
+                status: 200,
+                headers: headers
+              });
+            }
+          }
+        } catch (error) {
+          console.error('获取脚本链接失败:', error);
+        }
+      }
+    }
+    
+    // 如果所有方法都失败，返回原始 HTML
     content = html;
   } else {
     // For binary content (images, downloads, etc.), pass through as-is
