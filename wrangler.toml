@@ -9,8 +9,7 @@ compatibility_date = "2024-01-01"
 [env.production]
 name = "sh-proxy"
 routes = [
-  # Add your custom domain routes here
-  # Example: "proxy.yourdomain.com/*"
+  "sh-proxy.izm.cool/*"
 ]
 
 [env.dev]

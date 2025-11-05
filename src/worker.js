@@ -225,7 +225,7 @@ async function handleRequest(request) {
     }
 
     // Process response
-    return await processResponse(response, target);
+    return await processResponse(response, target, request);
 
   } catch (error) {
     console.error('Error handling request:', error);
@@ -246,9 +246,10 @@ async function handleRequest(request) {
  * Process the response from the target server
  * @param {Response} response - The response from target server
  * @param {URL} targetUrl - The target URL object
+ * @param {Request} originalRequest - The original request (for language detection)
  * @returns {Promise<Response>} - The processed response
  */
-async function processResponse(response, targetUrl) {
+async function processResponse(response, targetUrl, originalRequest) {
   const contentType = response.headers.get('content-type') || '';
   let content;
 
@@ -264,7 +265,7 @@ async function processResponse(response, targetUrl) {
   } else if (contentType.includes('text/html')) {
     // 处理 HTML 响应，检查是否包含跳转逻辑
     const html = await response.text();
-    const redirectUrl = await handleHtmlRedirect(html, targetUrl);
+    const redirectUrl = await handleHtmlRedirect(html, targetUrl, originalRequest);
     
     if (redirectUrl) {
       // 如果检测到跳转，递归获取真正的脚本内容
@@ -272,13 +273,36 @@ async function processResponse(response, targetUrl) {
       
       try {
         const redirectResponse = await fetchWithTimeout(redirectUrl, {
-          headers: getProxyHeaders(new Headers()),
+          headers: getProxyHeaders(originalRequest.headers),
           redirect: 'follow'
         });
         
         if (redirectResponse.ok) {
-          // 递归处理跳转后的响应
-          return await processResponse(redirectResponse, new URL(redirectUrl));
+          const redirectContentType = redirectResponse.headers.get('content-type') || '';
+          
+          // 检查跳转后的内容是否是脚本
+          if (CONFIG.PROCESSABLE_CONTENT_TYPES.some(type => redirectContentType.includes(type))) {
+            // 是脚本内容，处理并返回
+            const scriptContent = await redirectResponse.text();
+            content = replaceLinkss(scriptContent);
+            
+            // 更新 content-type 为脚本类型
+            const headers = new Headers();
+            headers.set('Content-Type', 'text/plain; charset=utf-8');
+            headers.set('Access-Control-Allow-Origin', '*');
+            headers.set('Cache-Control', `public, max-age=${CONFIG.CACHE_MAX_AGE}`);
+            headers.set('X-Proxy-By', 'sh-proxy');
+            
+            return new Response(content, {
+              status: 200,
+              headers: headers
+            });
+          } else {
+            // 递归处理跳转后的响应
+            return await processResponse(redirectResponse, new URL(redirectUrl), originalRequest);
+          }
+        } else {
+          console.error(`跳转请求失败: ${redirectResponse.status} ${redirectResponse.statusText}`);
         }
       } catch (error) {
         console.error('跳转请求失败:', error);
@@ -385,9 +409,10 @@ function getBestMirror(originalDomain) {
  * Handle HTML redirect logic
  * @param {string} html - HTML content
  * @param {URL} baseUrl - Base URL for resolving relative URLs
+ * @param {Request} originalRequest - Original request for language detection
  * @returns {Promise<string|null>} - Redirect URL or null if no redirect found
  */
-async function handleHtmlRedirect(html, baseUrl) {
+async function handleHtmlRedirect(html, baseUrl, originalRequest) {
   try {
     // 检查 meta refresh 跳转
     const metaRefreshMatch = html.match(/<meta[^>]*http-equiv=["']refresh["'][^>]*content=["'](\d+);?\s*url=([^"']+)["'][^>]*>/i);
@@ -415,7 +440,7 @@ async function handleHtmlRedirect(html, baseUrl) {
         
         // 处理模板字符串中的变量替换
         if (redirectUrl.includes('${')) {
-          redirectUrl = await evaluateJsRedirect(html, baseUrl);
+          redirectUrl = await evaluateJsRedirect(html, baseUrl, originalRequest);
           if (redirectUrl) {
             return redirectUrl;
           }
@@ -427,10 +452,35 @@ async function handleHtmlRedirect(html, baseUrl) {
 
     // 检查特定的跳转逻辑（如 bench.sh 的语言检测）
     if (html.includes('targetLang') && html.includes('.html')) {
-      // 模拟浏览器语言检测，默认使用中文
-      const targetLang = 'zh'; // 可以根据 Accept-Language 头部动态设置
+      // 根据 Accept-Language 头部检测语言
+      const acceptLanguage = originalRequest?.headers.get('Accept-Language') || 'en-US,en;q=0.9';
+      let targetLang = 'en'; // 默认英文
+      
+      // 语言匹配逻辑
+      if (/ja/i.test(acceptLanguage)) {
+        targetLang = 'ja';
+      } else if (/zh/i.test(acceptLanguage)) {
+        targetLang = 'zh';
+      }
+      
       const redirectUrl = `${targetLang}.html`;
       return resolveUrl(redirectUrl, baseUrl);
+    }
+
+    // 检查是否是 bench.sh 相关的页面（通过特征识别）
+    if (html.includes('Bench.sh') && html.includes('Redirecting')) {
+      // 对于 bench.sh，默认跳转到中文版本
+      const redirectUrl = 'zh.html';
+      return resolveUrl(redirectUrl, baseUrl);
+    }
+
+    // 检查是否包含自动跳转的 JavaScript
+    if (html.includes('window.location.href') && html.includes('setTimeout')) {
+      // 尝试提取跳转目标
+      const jsMatch = html.match(/window\.location\.href\s*=\s*["`']([^"`']+)["`']/);
+      if (jsMatch) {
+        return resolveUrl(jsMatch[1], baseUrl);
+      }
     }
 
     return null;
@@ -444,9 +494,10 @@ async function handleHtmlRedirect(html, baseUrl) {
  * Evaluate JavaScript redirect logic
  * @param {string} html - HTML content with JavaScript
  * @param {URL} baseUrl - Base URL
+ * @param {Request} originalRequest - Original request for language detection
  * @returns {Promise<string|null>} - Evaluated redirect URL
  */
-async function evaluateJsRedirect(html, baseUrl) {
+async function evaluateJsRedirect(html, baseUrl, originalRequest) {
   try {
     // 提取 JavaScript 代码
     const scriptMatch = html.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
@@ -454,10 +505,11 @@ async function evaluateJsRedirect(html, baseUrl) {
 
     const scriptContent = scriptMatch[1];
     
-    // 模拟浏览器环境变量
+    // 从请求头获取语言信息
+    const acceptLanguage = originalRequest?.headers.get('Accept-Language') || 'en-US,en;q=0.9';
     const mockNavigator = {
-      language: 'zh-CN',
-      userLanguage: 'zh-CN'
+      language: acceptLanguage.split(',')[0] || 'en-US',
+      userLanguage: acceptLanguage.split(',')[0] || 'en-US'
     };
 
     // 简单的 JavaScript 执行模拟
@@ -467,9 +519,9 @@ async function evaluateJsRedirect(html, baseUrl) {
       
       // 模拟语言匹配逻辑
       const browserLang = mockNavigator.language || mockNavigator.userLanguage;
-      if (/^ja/.test(browserLang)) {
+      if (/^ja/i.test(browserLang)) {
         targetLang = 'ja';
-      } else if (/^zh/.test(browserLang)) {
+      } else if (/^zh/i.test(browserLang)) {
         targetLang = 'zh';
       }
       
