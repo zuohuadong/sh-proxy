@@ -10,16 +10,17 @@ const HEALTH_CHECK_TIMEOUT = 5000;
 /**
  * 检查域名健康状态
  * @param {string} domain - 要检查的域名
+ * @param {string} checkPath - 检查路径（默认为 '/'）
  * @returns {Promise<boolean>} - 域名是否可访问
  */
-function checkDomainHealth(domain) {
+function checkDomainHealth(domain, checkPath = '/') {
   return new Promise((resolve) => {
     const url = new URL(`https://${domain}`);
-    
+
     const req = https.request({
       hostname: url.hostname,
       port: 443,
-      path: '/',
+      path: checkPath,
       method: 'HEAD',
       timeout: HEALTH_CHECK_TIMEOUT,
       headers: {
@@ -44,37 +45,52 @@ function checkDomainHealth(domain) {
 }
 
 /**
+ * 检查 Docker 镜像源健康状态
+ * @param {string} domain - 要检查的域名
+ * @returns {Promise<boolean>} - 镜像源是否可访问
+ */
+function checkDockerMirrorHealth(domain) {
+  // Docker 镜像源需要检查 /v2/ 端点
+  return checkDomainHealth(domain, '/v2/');
+}
+
+/**
  * 获取最佳可用镜像
+ * @param {string} sourceDomain - 源域名
  * @param {Object} config - 镜像配置
  * @returns {Promise<string>} - 最佳镜像域名
  */
-async function getBestMirror(config) {
+async function getBestMirror(sourceDomain, config) {
+  // 判断是否为 Docker 镜像源
+  const isDockerMirror = ['docker.io', 'registry-1.docker.io', 'index.docker.io', 'registry.hub.docker.com'].includes(sourceDomain);
+  const healthCheckFunc = isDockerMirror ? checkDockerMirrorHealth : checkDomainHealth;
+
   // 检查 primary
-  console.log(`Checking primary: ${config.primary}`);
-  const primaryHealthy = await checkDomainHealth(config.primary);
-  
+  console.log(`Checking primary: ${config.primary}${isDockerMirror ? ' (Docker mirror)' : ''}`);
+  const primaryHealthy = await healthCheckFunc(config.primary);
+
   if (primaryHealthy) {
     console.log(`✓ Primary ${config.primary} is healthy`);
     return config.primary;
   }
-  
+
   console.log(`✗ Primary ${config.primary} is unhealthy`);
-  
+
   // 检查 fallback
   if (config.fallback && config.fallback.length > 0) {
     for (const fallback of config.fallback) {
-      console.log(`Checking fallback: ${fallback}`);
-      const fallbackHealthy = await checkDomainHealth(fallback);
-      
+      console.log(`Checking fallback: ${fallback}${isDockerMirror ? ' (Docker mirror)' : ''}`);
+      const fallbackHealthy = await healthCheckFunc(fallback);
+
       if (fallbackHealthy) {
         console.log(`✓ Fallback ${fallback} is healthy`);
         return fallback;
       }
-      
+
       console.log(`✗ Fallback ${fallback} is unhealthy`);
     }
   }
-  
+
   // 所有镜像都不可用，返回 primary
   console.log(`⚠ All mirrors unhealthy, keeping primary: ${config.primary}`);
   return config.primary;
@@ -186,7 +202,7 @@ async function main() {
       console.log(`Current primary: ${config.primary}`);
       console.log(`Fallback options: ${config.fallback.join(', ') || 'none'}`);
       
-      const bestMirror = await getBestMirror(config);
+      const bestMirror = await getBestMirror(domain, config);
       
       // 如果最佳镜像与当前 primary 不同，需要更新
       if (bestMirror !== config.primary) {
