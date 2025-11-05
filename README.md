@@ -6,6 +6,20 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=flat-square)](LICENSE) [![GitHub Stars](https://img.shields.io/github/stars/zuohuadong/sh-proxy?style=flat-square&logo=github&color=yellow)](https://github.com/zuohuadong/sh-proxy/stargazers) [![GitHub Forks](https://img.shields.io/github/forks/zuohuadong/sh-proxy?style=flat-square&logo=github&color=blue)](https://github.com/zuohuadong/sh-proxy/network/members) [![GitHub Issues](https://img.shields.io/github/issues/zuohuadong/sh-proxy?style=flat-square&logo=github&color=red)](https://github.com/zuohuadong/sh-proxy/issues) [![Last Commit](https://img.shields.io/github/last-commit/zuohuadong/sh-proxy?style=flat-square&logo=github&color=green)](https://github.com/zuohuadong/sh-proxy/commits/master) [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-orange?style=flat-square&logo=cloudflare)](https://workers.cloudflare.com/)
 
+## 🎯 在线体验
+
+**官方演示站点：** [https://sh-proxy.izm.cool](https://sh-proxy.izm.cool)
+
+## 💖 赞助支持
+
+如果这个项目对您有帮助，欢迎赞助支持项目发展：
+
+[![爱发电](https://img.shields.io/badge/爱发电-支持作者-ff69b4?style=flat-square&logo=heart)](https://afdian.net/a/zuohuadong)
+[![微信赞赏](https://img.shields.io/badge/微信-赞赏码-07c160?style=flat-square&logo=wechat)](https://github.com/zuohuadong/sh-proxy/blob/master/docs/wechat-donate.jpg)
+[![支付宝](https://img.shields.io/badge/支付宝-收款码-1677ff?style=flat-square&logo=alipay)](https://github.com/zuohuadong/sh-proxy/blob/master/docs/alipay-donate.jpg)
+
+您的支持是我们持续改进的动力！🚀
+
 ## 简介
 
 SH Proxy 是一个运行在 Cloudflare Workers 上的轻量级代理服务，专门用于加速各种安装脚本的访问。本服务**只处理脚本文件**，自动替换脚本中的镜像链接，确保安装过程流畅无阻。利用 Cloudflare 的全球边缘网络，为用户提供快速、稳定的访问体验。
@@ -187,7 +201,7 @@ curl https://proxy.example.com/
 直接使用域名和路径，无需添加协议前缀：
 
 ```bash
-https://你的域名/域名/路径
+https://sh-proxy.izm.cool/域名/路径
 ```
 
 #### 2. 完整 URL 格式
@@ -195,7 +209,7 @@ https://你的域名/域名/路径
 使用完整的 URL（包含 https://）：
 
 ```bash
-https://你的域名/https://目标网址
+https://sh-proxy.izm.cool/https://目标网址
 ```
 
 ### 实际示例
@@ -206,30 +220,30 @@ https://你的域名/https://目标网址
 
 ```bash
 # 加速安装 NVM (Node Version Manager)
-curl -fsSL https://你的域名/raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+curl -fsSL https://sh-proxy.izm.cool/raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
 
 # 或使用完整 URL 格式
-curl -fsSL https://你的域名/https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+curl -fsSL https://sh-proxy.izm.cool/https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
 ```
 
 **2. 代理 Bun 安装脚本**
 
 ```bash
 # 纯域名格式（推荐）
-curl -fsSL https://你的域名/bun.sh/install | bash
+curl -fsSL https://sh-proxy.izm.cool/bun.sh/install | bash
 
 # 完整 URL 格式
-curl -fsSL https://你的域名/https://bun.sh/install | bash
+curl -fsSL https://sh-proxy.izm.cool/https://bun.sh/install | bash
 ```
 
 **3. 代理 GitHub Raw 文件**
 
 ```bash
 # 纯域名格式
-curl -fsSL https://你的域名/raw.githubusercontent.com/user/repo/main/install.sh | bash
+curl -fsSL https://sh-proxy.izm.cool/raw.githubusercontent.com/user/repo/main/install.sh | bash
 
 # 完整 URL 格式
-curl -fsSL https://你的域名/https://raw.githubusercontent.com/user/repo/main/install.sh | bash
+curl -fsSL https://sh-proxy.izm.cool/https://raw.githubusercontent.com/user/repo/main/install.sh | bash
 ```
 
 **4. 代理 GitHub 下载文件（自动使用 gh-proxy.net）**
@@ -237,7 +251,7 @@ curl -fsSL https://你的域名/https://raw.githubusercontent.com/user/repo/main
 ```bash
 # 下载 GitHub Releases 文件
 # 脚本中的 github.com 链接会自动转换为 gh-proxy.net 完整 URL 代理
-curl -fsSL https://你的域名/https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip -o bun.zip
+curl -fsSL https://sh-proxy.izm.cool/https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip -o bun.zip
 
 # 实际代理后的 URL 格式：https://gh-proxy.net/https://github.com/oven-sh/bun/releases/...
 ```
@@ -246,20 +260,20 @@ curl -fsSL https://你的域名/https://github.com/oven-sh/bun/releases/latest/d
 
 ```bash
 # 使用 wget
-wget -qO- https://你的域名/example.com/setup.sh | sh
+wget -qO- https://sh-proxy.izm.cool/example.com/setup.sh | sh
 
 # 使用 curl
-curl -sSL https://你的域名/get.docker.com | sh
+curl -sSL https://sh-proxy.izm.cool/get.docker.com | sh
 ```
 
 #### Python 脚本代理
 
 ```bash
 # 代理 Python 安装脚本
-curl -fsSL https://你的域名/pyenv.run | bash
+curl -fsSL https://sh-proxy.izm.cool/pyenv.run | bash
 
 # 或者使用 wget
-wget -qO- https://你的域名/get.poetry.io | python3 -
+wget -qO- https://sh-proxy.izm.cool/get.poetry.io | python3 -
 ```
 
 ### 支持的脚本类型
@@ -476,6 +490,15 @@ Apache License 2.0
 - [Wrangler CLI 文档](https://developers.cloudflare.com/workers/wrangler/)
 - [Cloudflare Workers 定价](https://developers.cloudflare.com/workers/platform/pricing/)
 - [GitHub 仓库](https://github.com/zuohuadong/sh-proxy)
+
+## 💖 赞助支持
+
+如果这个项目对您有帮助，欢迎通过以下方式支持项目发展：
+
+- 💝 [爱发电赞助](https://afdian.net/a/zuohuadong)
+- 📖 [查看完整赞助说明](docs/SPONSOR.md)
+
+您的支持是我们持续改进的动力！🚀
 
 ## 致谢
 
