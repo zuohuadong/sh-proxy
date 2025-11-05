@@ -10,19 +10,20 @@
 
 ## 赞助方式
 
-### 💝 爱发电（推荐）
-通过爱发电平台进行月度或一次性赞助：
-[https://afdian.net/a/zuohuadong](https://afdian.net/a/zuohuadong)
+### 🌍 Open Collective（国际用户推荐）
+通过 Open Collective 平台进行透明的资金管理：
+[https://opencollective.com/sh-proxy](https://opencollective.com/sh-proxy)
 
-### 💰 微信赞赏
-扫描下方二维码进行微信赞赏：
+**优势：**
+- 💳 支持信用卡、PayPal、银行转账
+- 📊 资金使用完全透明
+- 🧾 自动生成捐赠收据
+- 🌐 适合海外用户
 
-![微信赞赏码](wechat-donate.jpg)
+### 💰 直接打赏（国内用户推荐）
+扫描下方二维码进行微信/支付宝赞赏：
 
-### 💳 支付宝
-扫描下方二维码进行支付宝转账：
-
-![支付宝收款码](alipay-donate.jpg)
+![微信支付宝赞赏码](donate.png)
 
 ## 赞助者名单
 

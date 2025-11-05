@@ -14,9 +14,11 @@
 
 如果这个项目对您有帮助，欢迎赞助支持项目发展：
 
-[![爱发电](https://img.shields.io/badge/爱发电-支持作者-ff69b4?style=flat-square&logo=heart)](https://afdian.net/a/zuohuadong)
-[![微信赞赏](https://img.shields.io/badge/微信-赞赏码-07c160?style=flat-square&logo=wechat)](https://github.com/zuohuadong/sh-proxy/blob/master/docs/wechat-donate.jpg)
-[![支付宝](https://img.shields.io/badge/支付宝-收款码-1677ff?style=flat-square&logo=alipay)](https://github.com/zuohuadong/sh-proxy/blob/master/docs/alipay-donate.jpg)
+<p align="center">
+  <a href="https://afdian.net/a/zuohuadong" target="_blank">
+    <img src="https://raw.githubusercontent.com/zuohuadong/sh-proxy/master/docs/donate.png" alt="赞助支持" width="650">
+  </a>
+</p>
 
 您的支持是我们持续改进的动力！🚀
 
@@ -493,10 +495,7 @@ Apache License 2.0
 
 ## 💖 赞助支持
 
-如果这个项目对您有帮助，欢迎通过以下方式支持项目发展：
-
-- 💝 [爱发电赞助](https://afdian.net/a/zuohuadong)
-- 📖 [查看完整赞助说明](docs/SPONSOR.md)
+如果这个项目对您有帮助，欢迎通过 [爱发电](https://afdian.net/a/zuohuadong) 赞助支持项目发展。
 
 您的支持是我们持续改进的动力！🚀
 
