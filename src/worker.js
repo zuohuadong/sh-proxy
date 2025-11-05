@@ -175,6 +175,12 @@ async function handleRequest(request) {
     targetUrl = 'https://' + targetUrl;
   }
 
+  // 特殊处理：bench.sh 应该指向 https://bench.sh 而不是其他镜像
+  if (targetUrl === 'https://bench.sh') {
+    // 直接使用原始 URL，不进行镜像替换
+    console.log('直接访问 bench.sh，不使用镜像');
+  }
+
   // Validate target URL
   if (!targetUrl) {
     return new Response(
@@ -204,8 +210,10 @@ async function handleRequest(request) {
       });
     }
 
-    // 替换 URL 中的域名为镜像域名
-    const mirroredUrl = replaceUrlWithMirror(targetUrl);
+    // 替换 URL 中的域名为镜像域名（bench.sh 除外）
+    const mirroredUrl = targetUrl === 'https://bench.sh' ? targetUrl : replaceUrlWithMirror(targetUrl);
+    
+    console.log(`请求处理: ${targetUrl} -> ${mirroredUrl}`);
     
     // Fetch target content
     const response = await fetchWithTimeout(mirroredUrl, {
@@ -469,16 +477,46 @@ async function handleHtmlRedirect(html, baseUrl, originalRequest) {
 
     // 检查是否是 bench.sh 相关的页面（通过特征识别）
     if (html.includes('Bench.sh') && html.includes('Redirecting')) {
-      // 对于 bench.sh，默认跳转到中文版本
-      const redirectUrl = 'zh.html';
+      // 根据 Accept-Language 头部检测语言
+      const acceptLanguage = originalRequest?.headers.get('Accept-Language') || 'en-US,en;q=0.9';
+      let targetLang = 'en'; // 默认英文
+      
+      // 语言匹配逻辑
+      if (/ja/i.test(acceptLanguage)) {
+        targetLang = 'ja';
+      } else if (/zh/i.test(acceptLanguage)) {
+        targetLang = 'zh';
+      }
+      
+      const redirectUrl = `${targetLang}.html`;
+      console.log(`bench.sh 语言检测跳转: ${acceptLanguage} -> ${redirectUrl}`);
       return resolveUrl(redirectUrl, baseUrl);
     }
 
-    // 检查是否包含自动跳转的 JavaScript
+    // 检查是否包含自动跳转的 JavaScript（模板字符串形式）
+    if (html.includes('window.location.href') && html.includes('setTimeout') && html.includes('targetLang')) {
+      // 根据 Accept-Language 头部检测语言
+      const acceptLanguage = originalRequest?.headers.get('Accept-Language') || 'en-US,en;q=0.9';
+      let targetLang = 'en'; // 默认英文
+      
+      // 语言匹配逻辑
+      if (/ja/i.test(acceptLanguage)) {
+        targetLang = 'ja';
+      } else if (/zh/i.test(acceptLanguage)) {
+        targetLang = 'zh';
+      }
+      
+      const redirectUrl = `${targetLang}.html`;
+      console.log(`JavaScript 语言检测跳转: ${acceptLanguage} -> ${redirectUrl}`);
+      return resolveUrl(redirectUrl, baseUrl);
+    }
+
+    // 检查是否包含自动跳转的 JavaScript（普通形式）
     if (html.includes('window.location.href') && html.includes('setTimeout')) {
       // 尝试提取跳转目标
       const jsMatch = html.match(/window\.location\.href\s*=\s*["`']([^"`']+)["`']/);
       if (jsMatch) {
+        console.log(`JavaScript 直接跳转: ${jsMatch[1]}`);
         return resolveUrl(jsMatch[1], baseUrl);
       }
     }
