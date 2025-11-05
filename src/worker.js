@@ -85,10 +85,9 @@ const CONFIG = {
       fallback: []
     },
 
-    // CDN 服务
-    'cdn.jsdelivr.net': {
-      primary: 'jsd.cdn.zzko.cn',
-      fallback: ['fastly.jsdelivr.net']
+    // CDN 服务    'cdn.jsdelivr.net': {
+      primary: 'fastly.jsdelivr.net',
+      fallback: ['jsd.cdn.zzko.cn']
     },
     'fonts.googleapis.com': {
       primary: 'fonts.googleapis.cn',
@@ -97,10 +96,9 @@ const CONFIG = {
     'fonts.gstatic.com': {
       primary: 'fonts.gstatic.cn',
       fallback: ['gstatic.loli.net']
-    },
-    'ajax.googleapis.com': {
-      primary: 'ajax.googleapis.cn',
-      fallback: ['ajax.loli.net']
+    },    'ajax.googleapis.com': {
+      primary: 'ajax.loli.net',
+      fallback: ['ajax.googleapis.cn']
     },
 
     // Maven
@@ -511,6 +509,8 @@ async function handleHtmlRedirect(html, baseUrl, originalRequest) {
         targetLang = 'zh';
       }
       
+      console.log(`语言检测: ${acceptLanguage} -> ${targetLang}`);
+      
       // 尝试多种可能的跳转目标
       const possibleTargets = [
         `${targetLang}.html`,
@@ -520,14 +520,10 @@ async function handleHtmlRedirect(html, baseUrl, originalRequest) {
         `install_${targetLang}.sh`
       ];
       
-      // 检查哪个目标存在
-      for (const target of possibleTargets) {
-        const testUrl = resolveUrl(target, baseUrl);
-        console.log(`尝试语言跳转目标: ${acceptLanguage} -> ${target}`);
-        
-        // 先返回第一个可能的目标，如果不存在会在后续处理中fallback
-        return testUrl;
-      }
+      // 返回第一个可能的目标
+      const redirectUrl = resolveUrl(possibleTargets[0], baseUrl);
+      console.log(`语言跳转目标: ${redirectUrl}`);
+      return redirectUrl;
     }
 
     // 检查是否包含自动跳转的 JavaScript（普通形式）

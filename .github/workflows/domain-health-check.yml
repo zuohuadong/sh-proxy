@@ -15,17 +15,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
       with:
-        node-version: '20'
+        bun-version: latest
         
     - name: Install dependencies
-      run: npm install
+      run: bun install
       
     - name: Check domain health and update config
       run: |
-        node scripts/health-check.js
+        bun scripts/health-check.js
         
     - name: Check for changes
       id: changes
