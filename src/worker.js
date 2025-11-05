@@ -261,6 +261,33 @@ async function processResponse(response, targetUrl) {
     // Get text content and replace links
     const text = await response.text();
     content = replaceLinkss(text);
+  } else if (contentType.includes('text/html')) {
+    // 处理 HTML 响应，检查是否包含跳转逻辑
+    const html = await response.text();
+    const redirectUrl = await handleHtmlRedirect(html, targetUrl);
+    
+    if (redirectUrl) {
+      // 如果检测到跳转，递归获取真正的脚本内容
+      console.log(`检测到 HTML 跳转: ${targetUrl.href} -> ${redirectUrl}`);
+      
+      try {
+        const redirectResponse = await fetchWithTimeout(redirectUrl, {
+          headers: getProxyHeaders(new Headers()),
+          redirect: 'follow'
+        });
+        
+        if (redirectResponse.ok) {
+          // 递归处理跳转后的响应
+          return await processResponse(redirectResponse, new URL(redirectUrl));
+        }
+      } catch (error) {
+        console.error('跳转请求失败:', error);
+        // 跳转失败时返回原始 HTML
+      }
+    }
+    
+    // 如果没有跳转或跳转失败，返回原始 HTML
+    content = html;
   } else {
     // For binary content (images, downloads, etc.), pass through as-is
     content = response.body;
@@ -352,6 +379,132 @@ function getBestMirror(originalDomain) {
 
   // 直接返回 primary 镜像，由 CI 保证其可用性
   return config.primary;
+}
+
+/**
+ * Handle HTML redirect logic
+ * @param {string} html - HTML content
+ * @param {URL} baseUrl - Base URL for resolving relative URLs
+ * @returns {Promise<string|null>} - Redirect URL or null if no redirect found
+ */
+async function handleHtmlRedirect(html, baseUrl) {
+  try {
+    // 检查 meta refresh 跳转
+    const metaRefreshMatch = html.match(/<meta[^>]*http-equiv=["']refresh["'][^>]*content=["'](\d+);?\s*url=([^"']+)["'][^>]*>/i);
+    if (metaRefreshMatch) {
+      const redirectUrl = metaRefreshMatch[2];
+      return resolveUrl(redirectUrl, baseUrl);
+    }
+
+    // 检查 JavaScript 跳转逻辑
+    const jsRedirectPatterns = [
+      // window.location.href = "url"
+      /window\.location\.href\s*=\s*["'`]([^"'`]+)["'`]/i,
+      // window.location = "url"
+      /window\.location\s*=\s*["'`]([^"'`]+)["'`]/i,
+      // location.href = "url"
+      /location\.href\s*=\s*["'`]([^"'`]+)["'`]/i,
+      // 模板字符串跳转: `${targetLang}.html`
+      /window\.location\.href\s*=\s*`([^`]+)`/i,
+    ];
+
+    for (const pattern of jsRedirectPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        let redirectUrl = match[1];
+        
+        // 处理模板字符串中的变量替换
+        if (redirectUrl.includes('${')) {
+          redirectUrl = await evaluateJsRedirect(html, baseUrl);
+          if (redirectUrl) {
+            return redirectUrl;
+          }
+        } else {
+          return resolveUrl(redirectUrl, baseUrl);
+        }
+      }
+    }
+
+    // 检查特定的跳转逻辑（如 bench.sh 的语言检测）
+    if (html.includes('targetLang') && html.includes('.html')) {
+      // 模拟浏览器语言检测，默认使用中文
+      const targetLang = 'zh'; // 可以根据 Accept-Language 头部动态设置
+      const redirectUrl = `${targetLang}.html`;
+      return resolveUrl(redirectUrl, baseUrl);
+    }
+
+    return null;
+  } catch (error) {
+    console.error('解析 HTML 跳转失败:', error);
+    return null;
+  }
+}
+
+/**
+ * Evaluate JavaScript redirect logic
+ * @param {string} html - HTML content with JavaScript
+ * @param {URL} baseUrl - Base URL
+ * @returns {Promise<string|null>} - Evaluated redirect URL
+ */
+async function evaluateJsRedirect(html, baseUrl) {
+  try {
+    // 提取 JavaScript 代码
+    const scriptMatch = html.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
+    if (!scriptMatch) return null;
+
+    const scriptContent = scriptMatch[1];
+    
+    // 模拟浏览器环境变量
+    const mockNavigator = {
+      language: 'zh-CN',
+      userLanguage: 'zh-CN'
+    };
+
+    // 简单的 JavaScript 执行模拟
+    // 检查语言检测逻辑
+    if (scriptContent.includes('browserLang') && scriptContent.includes('targetLang')) {
+      let targetLang = 'en'; // 默认英文
+      
+      // 模拟语言匹配逻辑
+      const browserLang = mockNavigator.language || mockNavigator.userLanguage;
+      if (/^ja/.test(browserLang)) {
+        targetLang = 'ja';
+      } else if (/^zh/.test(browserLang)) {
+        targetLang = 'zh';
+      }
+      
+      // 构建跳转 URL
+      const redirectUrl = `${targetLang}.html`;
+      return resolveUrl(redirectUrl, baseUrl);
+    }
+
+    return null;
+  } catch (error) {
+    console.error('执行 JavaScript 跳转逻辑失败:', error);
+    return null;
+  }
+}
+
+/**
+ * Resolve relative URL against base URL
+ * @param {string} url - URL to resolve
+ * @param {URL} baseUrl - Base URL
+ * @returns {string} - Resolved absolute URL
+ */
+function resolveUrl(url, baseUrl) {
+  try {
+    // 如果已经是绝对 URL，直接返回
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    
+    // 解析相对 URL
+    const resolved = new URL(url, baseUrl.href);
+    return resolved.href;
+  } catch (error) {
+    console.error('解析 URL 失败:', error);
+    return url;
+  }
 }
 
 /**
