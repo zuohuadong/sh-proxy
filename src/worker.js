@@ -72,6 +72,24 @@ const CONFIG = {
     },
 
     // 容器镜像
+    // DockerHub 官方镜像仓库
+    'docker.io': {
+      primary: 'docker.mirrors.ustc.edu.cn',
+      fallback: ['dockerproxy.com', 'hub-mirror.c.163.com']
+    },
+    'registry-1.docker.io': {
+      primary: 'docker.mirrors.ustc.edu.cn',
+      fallback: ['dockerproxy.com']
+    },
+    'index.docker.io': {
+      primary: 'docker.mirrors.ustc.edu.cn',
+      fallback: ['dockerproxy.com']
+    },
+    'registry.hub.docker.com': {
+      primary: 'docker.mirrors.ustc.edu.cn',
+      fallback: []
+    },
+    // 其他容器镜像源
     'gcr.io': {
       primary: 'gcr.mirrors.ustc.edu.cn',
       fallback: []
