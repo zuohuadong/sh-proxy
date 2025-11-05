@@ -14,24 +14,21 @@
 
 如果这个项目对您有帮助，欢迎通过以下方式支持项目发展：
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/zuohuadong/sh-proxy/master/docs/images/donate.png" alt="赞助支持" width="650">
-</p>
+### 🌍 国际赞助
+
+[![Open Collective](https://img.shields.io/badge/Open%20Collective-支持项目-blue?style=for-the-badge&logo=opencollective)](https://opencollective.com/sh-proxy)
+
+通过 Open Collective 支持项目：**https://opencollective.com/sh-proxy**
+
+### 🇨🇳 国内赞助
+
 
 <details>
 <summary>📱 微信赞赏码</summary>
 <p align="center">
-  <img src="https://raw.githubusercontent.com/zuohuadong/sh-proxy/master/docs/images/wechat-donate.png" alt="微信赞赏码" width="300">
+  <img src="https://gh-proxy.net/https://raw.githubusercontent.com/zuohuadong/sh-proxy/master/docs/images/wechat-donate.png" alt="微信赞赏码" width="300">
 </p>
 </details>
-
-### 🎯 赞助方式
-
-- 🌍 **Open Collective**: [https://opencollective.com/sh-proxy](https://opencollective.com/sh-proxy) (国际用户推荐)
-- 💰 **微信/支付宝**: 扫描上方二维码直接打赏
-- 🛍️ **淘宝购买**: [赞助商品链接](https://item.taobao.com/item.htm?id=你的商品ID) (10/50/100元档位)
-- 🐟 **闲鱼支持**: [技术支持服务](https://2.taobao.com/item.htm?id=你的闲鱼ID)
-- ⭐ **免费支持**: 给项目点 Star、分享给朋友
 
 您的支持是我们持续改进的动力！🚀
 
@@ -508,7 +505,10 @@ Apache License 2.0
 
 ## 💖 赞助支持
 
-如果这个项目对您有帮助，欢迎通过微信/支付宝扫码或淘宝购买等方式赞助支持项目发展。
+如果这个项目对您有帮助，欢迎通过以下方式支持项目发展：
+
+- 🌍 **国际用户**：[Open Collective](https://opencollective.com/sh-proxy) - 支持信用卡、PayPal 等多种支付方式
+- 🇨🇳 **国内用户**：微信/支付宝扫码赞赏
 
 您的支持是我们持续改进的动力！🚀
 

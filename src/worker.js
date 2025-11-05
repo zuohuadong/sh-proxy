@@ -947,6 +947,22 @@ function getUsageResponse(request) {
             </div>
         </div>
 
+        <div class="section">
+            <h2>💖 赞助支持</h2>
+            <div class="usage">
+                <p>如果这个项目对您有帮助，欢迎通过以下方式支持项目发展：</p>
+                <div class="example">
+                    <div class="example-title">🌍 国际赞助：</div>
+                    <a href="https://opencollective.com/sh-proxy" target="_blank" style="color: #667eea; text-decoration: none;">
+                        <code>https://opencollective.com/sh-proxy</code>
+                    </a>
+                </div>
+                <p style="margin-top: 15px; color: #666; font-size: 0.9em;">
+                    您的支持是我们持续改进的动力！🚀
+                </p>
+            </div>
+        </div>
+
         <div class="footer">
             Powered by Cloudflare Workers | Built with ❤️
         </div>
