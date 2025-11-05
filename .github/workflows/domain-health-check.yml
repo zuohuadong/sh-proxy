@@ -25,15 +25,49 @@ jobs:
       
     - name: Check domain health and update config
       run: |
+        echo "🔍 Starting health check for all mirror domains..."
         bun scripts/health-check.js
-        
+
+    - name: Generate health check report
+      run: |
+        echo "📊 Health Check Summary"
+        echo "======================="
+        echo ""
+        echo "🐳 DockerHub Mirror Status:"
+        echo "  - docker.io mirrors checked"
+        echo "  - registry-1.docker.io mirrors checked"
+        echo "  - index.docker.io mirrors checked"
+        echo "  - registry.hub.docker.com mirrors checked"
+        echo ""
+        echo "ℹ️  Check the logs above for detailed results"
+
+    - name: Show DockerHub configuration
+      run: |
+        echo ""
+        echo "🐳 Current DockerHub Mirror Configuration:"
+        echo "=========================================="
+        echo ""
+        echo "📦 docker.io:"
+        grep -A 20 "'docker.io':" src/worker.js | grep -E "(primary|fallback)" || echo "  Configuration not found"
+        echo ""
+        echo "📦 registry-1.docker.io:"
+        grep -A 10 "'registry-1.docker.io':" src/worker.js | grep -E "(primary|fallback)" || echo "  Configuration not found"
+        echo ""
+        echo "📦 index.docker.io:"
+        grep -A 10 "'index.docker.io':" src/worker.js | grep -E "(primary|fallback)" || echo "  Configuration not found"
+        echo ""
+        echo "📦 registry.hub.docker.com:"
+        grep -A 10 "'registry.hub.docker.com':" src/worker.js | grep -E "(primary|fallback)" || echo "  Configuration not found"
+
     - name: Check for changes
       id: changes
       run: |
         if git diff --quiet src/worker.js; then
           echo "changed=false" >> $GITHUB_OUTPUT
+          echo "✅ No changes needed - all mirrors are healthy"
         else
           echo "changed=true" >> $GITHUB_OUTPUT
+          echo "🔄 Configuration changes detected - will commit and deploy"
         fi
         
     - name: Commit and push changes
@@ -42,7 +76,7 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add src/worker.js
-        git commit -m "Auto-update mirror domains based on health check"
+        git commit -m "Auto-update mirror domains based on health check (including DockerHub mirrors)"
         git push
         
     - name: Deploy to Cloudflare Workers
