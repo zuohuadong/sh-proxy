@@ -169,10 +169,18 @@ const CONFIG = {
       fallback: []
     },
 
+
     // Rust
     'crates.io': {
       primary: 'rsproxy.cn',
       fallback: []
+    },
+
+    // Dokploy
+    'dokploy.com': {
+      primary: 'dokploy.com',
+      fallback: [],
+      type: 'domain-replace'
     },
 
 
@@ -344,11 +352,16 @@ async function processResponse(response, targetUrl) {
     // Get text content and replace links
     const text = await response.text();
     content = replaceLinkss(text);
+
+    // Special handling for Dokploy install script
+    if (targetUrl.hostname.includes('dokploy.com') && targetUrl.pathname.includes('install.sh')) {
+      content = optimizeDokployScript(content);
+    }
   } else if (contentType.includes('text/html')) {
     // 处理 HTML 响应，检查是否包含跳转逻辑
     const html = await response.text();
     const redirectUrl = await handleHtmlRedirect(html, targetUrl);
-    
+
     if (redirectUrl) {
       // 如果检测到跳转，递归获取真正的脚本内容
       console.log(`检测到 HTML 跳转: ${targetUrl.href} -> ${redirectUrl}`);
@@ -397,7 +410,7 @@ async function processResponse(response, targetUrl) {
         // 跳转失败时返回原始 HTML
       }
     }
-    
+
     // 如果没有跳转或跳转失败，返回原始 HTML
     content = html;
   } else {
@@ -451,7 +464,7 @@ function replaceUrlWithMirror(targetUrl) {
   try {
     const url = new URL(targetUrl);
     const domain = url.hostname;
-    
+
     // 检查是否有镜像配置
     const config = CONFIG.MIRRORS[domain];
     if (!config) {
@@ -460,10 +473,10 @@ function replaceUrlWithMirror(targetUrl) {
 
     // 获取镜像域名（由 CI 保证可用性）
     const mirror = getBestMirror(domain);
-    
+
     // 获取镜像类型，默认为 domain-replace
     const type = config.type || 'domain-replace';
-    
+
     if (type === 'full-url-proxy') {
       // 完整 URL 代理模式：https://gh-proxy.net/https://github.com/...
       return `https://${mirror}/${targetUrl}`;
@@ -524,7 +537,7 @@ async function handleHtmlRedirect(html, baseUrl) {
       const match = html.match(pattern);
       if (match) {
         let redirectUrl = match[1];
-        
+
         // 处理模板字符串中的变量替换
         if (redirectUrl.includes('${')) {
           redirectUrl = await evaluateJsRedirect(html, baseUrl);
@@ -565,7 +578,7 @@ async function evaluateJsRedirect(html, baseUrl) {
     if (!scriptMatch) return null;
 
     const scriptContent = scriptMatch[1];
-    
+
     // 模拟浏览器环境变量
     const mockNavigator = {
       language: 'zh-CN',
@@ -576,7 +589,7 @@ async function evaluateJsRedirect(html, baseUrl) {
     // 检查语言检测逻辑
     if (scriptContent.includes('browserLang') && scriptContent.includes('targetLang')) {
       let targetLang = 'en'; // 默认英文
-      
+
       // 模拟语言匹配逻辑
       const browserLang = mockNavigator.language || mockNavigator.userLanguage;
       if (/^ja/.test(browserLang)) {
@@ -584,7 +597,7 @@ async function evaluateJsRedirect(html, baseUrl) {
       } else if (/^zh/.test(browserLang)) {
         targetLang = 'zh';
       }
-      
+
       // 构建跳转 URL
       const redirectUrl = `${targetLang}.html`;
       return resolveUrl(redirectUrl, baseUrl);
@@ -609,7 +622,7 @@ function resolveUrl(url, baseUrl) {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
-    
+
     // 解析相对 URL
     const resolved = new URL(url, baseUrl.href);
     return resolved.href;
@@ -762,6 +775,83 @@ function isProxyLoop(targetUrl, request) {
   return false;
 }
 
+
+/**
+ * Optimize Dokploy installation script for China environment
+ * @param {string} scriptContent - Original script content
+ * @returns {string} - Optimized script content
+ */
+function optimizeDokployScript(scriptContent) {
+  // Extract versions from original script to ensure compatibility
+  // Fallback to known versions if regex fails (though unlikely for official script)
+  const postgresImage = (scriptContent.match(/postgres:[\w.-]+/) || ['postgres:16'])[0];
+  const redisImage = (scriptContent.match(/redis:[\w.-]+/) || ['redis:7'])[0];
+  const traefikImage = (scriptContent.match(/traefik:[\w.-]+/) || ['traefik:v3.6.1'])[0]; // Default from recent check
+
+  const optimizationLogic = `
+# --- Dokploy Optimization Start ---
+echo "Configuring Docker mirrors for China..."
+if [ ! -d "/etc/docker" ]; then mkdir -p /etc/docker; fi
+if [ -f "/etc/docker/daemon.json" ]; then cp /etc/docker/daemon.json /etc/docker/daemon.json.bak; fi
+cat > /etc/docker/daemon.json <<EOF
+{
+  "log-driver": "json-file",
+  "log-opts": { "max-size": "100m" },
+  "registry-mirrors": [
+    "https://docker.m.daocloud.io",
+    "https://docker.1panel.live",
+    "https://hub.rat.dev"
+  ]
+}
+EOF
+if command -v docker >/dev/null 2>&1; then systemctl daemon-reload && systemctl restart docker; fi
+
+# Function to pull from mirror and retag
+pull_and_tag() {
+    MIRROR_PREFIX="swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io"
+    FULL_IMAGE=$1
+    echo "Pulling $FULL_IMAGE from mirror..."
+    docker pull $MIRROR_PREFIX/$FULL_IMAGE
+    docker tag $MIRROR_PREFIX/$FULL_IMAGE $FULL_IMAGE
+}
+
+echo "Pre-pulling images..."
+pull_and_tag "${postgresImage}"
+pull_and_tag "${redisImage}"
+pull_and_tag "${traefikImage}"
+# Pull dokploy image defined in script variable
+if [ -n "$DOCKER_IMAGE" ]; then
+    pull_and_tag "$DOCKER_IMAGE"
+fi
+# --- Dokploy Optimization End ---
+`;
+
+  let optimized = scriptContent;
+
+  // 1. Inject optimization logic AFTER DOCKER_IMAGE is defined so we can use it
+  // Look for: DOCKER_IMAGE="dokploy/dokploy:${VERSION_TAG}"
+  const imageVarDef = 'DOCKER_IMAGE="dokploy/dokploy:${VERSION_TAG}"';
+  if (optimized.includes(imageVarDef)) {
+    optimized = optimized.replace(imageVarDef, `${imageVarDef}\n${optimizationLogic}`);
+  } else {
+    // Fallback: inject at start of function if pattern not found (matches old logic but less safe for variable)
+    optimized = optimized.replace('install_dokploy() {', `install_dokploy() {\n${optimizationLogic}`);
+  }
+
+  // 2. Replace docker install with Aliyun mirror version
+  optimized = optimized.replace(
+    'curl -sSL https://get.docker.com | sh -s -- --version 28.5.0',
+    'curl -fsSL https://get.docker.com | bash -s docker --mirror Aliyun --version 28.5.0'
+  );
+
+  return optimized;
+}
+
+/**
+ * Get usage instructions response
+ * @param {Request} request - The incoming request
+ * @returns {Response} - Response with usage instructions
+ */
 /**
  * Get usage instructions response
  * @param {Request} request - The incoming request
@@ -777,201 +867,317 @@ function getUsageResponse(request) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SH Proxy - 脚本镜像加速代理</title>
+    <title>SH Proxy - 全球脚本镜像加速服务</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary: #4F46E5;
+            --primary-dark: #4338ca;
+            --surface: #ffffff;
+            --background: #f3f4f6;
+            --text-main: #111827;
+            --text-secondary: #6b7280;
+            --border: #e5e7eb;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #333;
-            min-height: 100vh;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+            padding: 40px 0;
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+            border-radius: 24px;
+            color: white;
+            box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.4);
+        }
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 16px;
+            letter-spacing: -0.025em;
+        }
+        .header p {
+            font-size: 1.25rem;
+            color: rgba(255, 255, 255, 0.9);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 32px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid var(--border);
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: #EEF2FF;
+            color: var(--primary);
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
         }
-        .container {
-            background: white;
+        
+        .code-block {
+            background: #1F2937;
             border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 800px;
-            width: 100%;
-            padding: 40px;
-        }
-        h1 {
-            color: #667eea;
-            margin-bottom: 10px;
-            font-size: 2.5em;
-        }
-        .subtitle {
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 1.1em;
-        }
-        .section {
-            margin: 30px 0;
-        }
-        h2 {
-            color: #444;
-            margin-bottom: 15px;
-            font-size: 1.5em;
-            border-left: 4px solid #667eea;
-            padding-left: 12px;
-        }
-        .usage {
-            background: #f8f9fa;
-            border-radius: 8px;
             padding: 20px;
-            margin: 15px 0;
+            margin: 16px 0;
+            position: relative;
+            group: relative;
         }
-        code {
-            background: #2d2d2d;
-            color: #f8f8f2;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
+        .code-block code {
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            color: #E5E7EB;
+            font-size: 0.95rem;
+            display: block;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            padding-right: 40px;
         }
-        .example {
-            margin: 10px 0;
-            padding: 12px;
-            background: #e9ecef;
+        .copy-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #fff;
+            padding: 6px 10px;
             border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+            opacity: 0;
         }
-        .example-title {
-            font-weight: bold;
-            color: #667eea;
+        .code-block:hover .copy-btn {
+            opacity: 1;
+        }
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
             margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
-        .features {
+        
+        .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
         }
-        .feature {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 3px solid #667eea;
+        .feature-item {
+            padding: 24px;
+            background: #F9FAFB;
+            border-radius: 12px;
+            border: 1px solid var(--border);
         }
         .feature-title {
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 5px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-main);
         }
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 2px solid #e9ecef;
+        .feature-desc {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 12px;
+        }
+        .badge-new {
+            background: #DCFCE7;
+            color: #166534;
+        }
+
+        .domains-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .domain-tag {
+            background: #EEF2FF;
+            color: var(--primary);
+            padding: 6px 16px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        footer {
             text-align: center;
-            color: #666;
+            margin-top: 60px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        footer a {
+            color: var(--primary);
+            text-decoration: none;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🚀 SH Proxy</h1>
-        <div class="subtitle">脚本镜像加速代理服务</div>
+        <header class="header">
+            <h1>SH Proxy</h1>
+            <p>为开发者打造的全球脚本镜像加速服务</p>
+        </header>
 
-        <div class="section">
-            <h2>📖 使用方法</h2>
-            <div class="usage">
-                <p>在您的域名后添加 <code>/</code> 和目标 URL（支持纯域名格式）：</p>
-                <div class="example">
-                    <div class="example-title">完整 URL 格式：</div>
-                    <code>https://${currentDomain}/https://raw.githubusercontent.com/user/repo/main/install.sh</code>
+        <!-- 🚀 快速开始 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="icon">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                 </div>
-                <div class="example">
-                    <div class="example-title">纯域名格式（推荐）：</div>
-                    <code>https://${currentDomain}/raw.githubusercontent.com/user/repo/main/install.sh</code>
+                <h2 class="card-title">快速开始</h2>
+            </div>
+            
+            <div style="margin-bottom: 24px;">
+                <div class="label">通用用法</div>
+                <div class="code-block">
+                    <code>https://${currentDomain}/<span style="color:#60A5FA">target.com/script.sh</span></code>
+                    <button class="copy-btn" onclick="copyText(this)">复制</button>
                 </div>
             </div>
-        </div>
 
-        <div class="section">
-            <h2>💡 示例</h2>
-            <div class="example">
-                <div class="example-title">代理 NVM 安装脚本：</div>
-                <code>curl -fsSL https://${currentDomain}/raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash</code>
-            </div>
-            <div class="example">
-                <div class="example-title">代理 Bun 安装脚本：</div>
-                <code>curl -fsSL https://${currentDomain}/bun.sh/install | bash</code>
-            </div>
-            <div class="example">
-                <div class="example-title">代理 GitHub Raw 文件：</div>
-                <code>https://${currentDomain}/raw.githubusercontent.com/user/repo/main/script.sh</code>
-            </div>
-            <div class="example">
-                <div class="example-title">使用完整 URL：</div>
-                <code>https://${currentDomain}/https://example.com/install.py</code>
-            </div>
-        </div>
-
-        <div class="section">
-            <h2>✨ 功能特性</h2>
-            <div class="features">
-                <div class="feature">
-                    <div class="feature-title">📝 脚本专用</div>
-                    <div>只处理脚本文件，不加速页面和二进制文件</div>
+            <div class="label">🔥 热门加速示例</div>
+            
+            <!-- Dokploy Example -->
+            <div style="margin-top: 20px;">
+                <div class="label" style="columns: #4F46E5;">Dokploy安装 (国内优化版) <span class="badge badge-new">New</span></div>
+                <div class="code-block" style="border: 1px solid #4F46E5;">
+                    <code>curl -fsSL https://${currentDomain}/dokploy.com/install.sh | sh</code>
+                    <button class="copy-btn" onclick="copyText(this)">复制</button>
                 </div>
-                <div class="feature">
-                    <div class="feature-title">🔗 智能替换</div>
-                    <div>自动替换脚本中的镜像域名链接</div>
-                </div>
-                <div class="feature">
-                    <div class="feature-title">⚡ 边缘加速</div>
-                    <div>利用 Cloudflare 全球网络加速访问</div>
-                </div>
-                <div class="feature">
-                    <div class="feature-title">🔄 自动切换</div>
-                    <div>镜像不可用时自动切换到备用域名</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="section">
-            <h2>🛠️ 支持的脚本类型</h2>
-            <div class="usage">
-                <p>本服务专门处理以下脚本文件：</p>
-                <ul style="margin-left: 20px; margin-top: 10px; line-height: 1.8;">
-                    <li>Shell 脚本 (.sh)</li>
-                    <li>Python 脚本 (.py)</li>
-                    <li>JavaScript 脚本 (.js)</li>
-                    <li>其他纯文本安装脚本</li>
-                </ul>
-                <p style="margin-top: 10px; color: #666; font-size: 0.9em;">
-                    注意：不处理 HTML 页面、图片等非脚本文件
+                <p style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 8px;">
+                    ✨ 自动配置国内 Docker 镜像源，并使用华为云代理预拉取核心镜像，大幅提升安装成功率。
                 </p>
             </div>
-        </div>
 
-        <div class="section">
-            <h2>💖 赞助支持</h2>
-            <div class="usage">
-                <p>如果这个项目对您有帮助，欢迎通过以下方式支持项目发展：</p>
-                <div class="example">
-                    <div class="example-title">🌍 国际赞助：</div>
-                    <a href="https://opencollective.com/sh-proxy" target="_blank" style="color: #667eea; text-decoration: none;">
-                        <code>https://opencollective.com/sh-proxy</code>
-                    </a>
+            <div style="margin-top: 24px;">
+                <div class="label">其他常用脚本</div>
+                <div class="code-block">
+                    <code># NVM (Node Version Manager)
+curl -fsSL https://${currentDomain}/raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+
+# Bun
+curl -fsSL https://${currentDomain}/bun.sh/install | bash
+
+# GitHub Raw File
+wget https://${currentDomain}/raw.githubusercontent.com/user/repo/main/file.sh</code>
+                    <button class="copy-btn" onclick="copyText(this)">复制</button>
                 </div>
-                <p style="margin-top: 15px; color: #666; font-size: 0.9em;">
-                    您的支持是我们持续改进的动力！🚀
-                </p>
             </div>
         </div>
 
-        <div class="footer">
-            Powered by Cloudflare Workers | Built with ❤️
+        <!-- 🛡️ 支持的域名 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="icon">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <h2 class="card-title">支持的服务</h2>
+            </div>
+            <p style="color: var(--text-secondary)">我们会自动为以下域名请求选择最佳的国内镜像节点：</p>
+            <div class="domains-list">
+                <span class="domain-tag">github.com</span>
+                <span class="domain-tag">raw.githubusercontent.com</span>
+                <span class="domain-tag">dokploy.com</span>
+                <span class="domain-tag">docker.io</span>
+                <span class="domain-tag">npmjs.com</span>
+                <span class="domain-tag">pypi.org</span>
+                <span class="domain-tag">golang.org</span>
+                <span class="domain-tag">crates.io</span>
+            </div>
         </div>
+
+        <!-- ✨ 特性 -->
+        <div class="grid">
+            <div class="feature-item">
+                <div class="feature-title">⚡️ 智能加速</div>
+                <div class="feature-desc">自动识别目标域名，动态路由到最快的国内镜像源（如 DaoCloud, SJTU, Aliyun 等）。</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-title">🛡️ 内容优化</div>
+                <div class="feature-desc">针对安装脚本（如 Dokploy），自动注入国内环境适配逻辑，解决网络卡死问题。</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-title">🔄 失败自动切换</div>
+                <div class="feature-desc">内置多个备用镜像源，当主源不可用时毫秒级自动切换，保证高可用性。</div>
+            </div>
+        </div>
+
+        <footer>
+            <p>SH Proxy is an open source project.</p>
+            <p style="margin-top: 8px;">
+                <a href="https://github.com/orgs/sh-proxy" target="_blank">View on GitHub</a>
+            </p>
+        </footer>
     </div>
+
+    <script>
+        function copyText(btn) {
+            const codeBlock = btn.previousElementSibling;
+            let text = codeBlock.innerText;
+            
+            // Remove any prompt annotations if present
+            text = text.replace(/^[$%]\s+/gm, '');
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = btn.innerText;
+                btn.innerText = '已复制!';
+                btn.style.background = '#10B981';
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.style.background = '';
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        }
+    </script>
 </body>
 </html>`;
 
   return new Response(html, {
-    status: 200,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'public, max-age=3600'
